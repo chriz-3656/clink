@@ -13,27 +13,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            xvfb libgtk-3-dev libcairo2-dev libgirepository1.0-dev libglib2.0-dev \
-            pkg-config adb python3-gi python3-cairo
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip build
-          pip install pycairo PyGObject websockets python-xlib pytest pytest-asyncio
+            xvfb libgtk-3-0 libcairo2 python3-gi python3-gi-cairo python3-cairo \
+            python3-websockets python3-xlib python3-pytest python3-pytest-asyncio \
+            python3-qrcode python3-pil python3-build adb
 
       - name: Run automated test suite
         run: |
-          PYTHONPATH=linux/src:linux/tests pytest -v linux/tests
+          PYTHONPATH=linux/src:linux/tests python3 -m pytest -v linux/tests
 
       - name: Build distribution packages
         run: |
-          python -m build linux
+          python3 -m build linux

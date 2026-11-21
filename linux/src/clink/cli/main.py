@@ -109,14 +109,24 @@ def cmd_start(args: argparse.Namespace) -> None:
             print(f"Detected {len(devices)} USB device(s). Configuring adb reverse tcp:{config.port} tcp:{config.port}...")
             adb.setup_reverse_port()
 
-    # Generate and display pairing PIN
+    # Generate and display pairing PIN and QR
     pairing = PairingManager()
     pin = pairing.get_current_pin()
+    from clink.devices.qr_manager import make_pairing_uri, get_terminal_qr
+    from clink.gui.control_center import get_lan_ip
+    lan_ip = get_lan_ip()
+    uri = make_pairing_uri(lan_ip, config.port, pin)
     print(f"==========================================")
     print(f"  Clink Desktop Companion v{__version__}")
     print(f"  Listening on: ws://{config.host}:{config.port}")
+    print(f"  Wi-Fi LAN:    ws://{lan_ip}:{config.port}")
     print(f"  Pairing PIN:  {pin}")
+    print(f"  Pairing URI:  {uri}")
     print(f"==========================================")
+    try:
+        print(get_terminal_qr(lan_ip, config.port, pin))
+    except Exception:
+        pass
 
     run_server_daemon(config, pairing_mgr=pairing)
 

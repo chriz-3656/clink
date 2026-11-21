@@ -104,6 +104,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         client.sendPairRequest(pin)
     }
 
+    fun handleQrPayload(payload: String): Boolean {
+        try {
+            var h = "127.0.0.1"
+            var p = 8765
+            var pin = ""
+            val trimmed = payload.trim()
+
+            if (trimmed.startsWith("clink://")) {
+                val query = trimmed.substringAfter("?", "")
+                val map = query.split("&").associate {
+                    val kv = it.split("=")
+                    kv[0] to kv.getOrElse(1) { "" }
+                }
+                h = map["host"] ?: "127.0.0.1"
+                p = map["port"]?.toIntOrNull() ?: 8765
+                pin = map["pin"] ?: ""
+            } else if (":" in trimmed) {
+                val parts = trimmed.split(":")
+                h = parts[0]
+                if (parts.size >= 2) p = parts[1].toIntOrNull() ?: 8765
+                if (parts.size >= 3) pin = parts[2]
+            } else {
+                return false
+            }
+
+            preferences.host = h
+            preferences.port = p
+            connectWifi(h, p)
+            if (pin.isNotBlank()) {
+                submitPin(pin)
+            }
+            return true
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
     fun disconnect() {
         client.disconnect()
         _pairingError.value = null

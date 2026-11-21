@@ -25,26 +25,20 @@ jobs:
         run: |
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            xvfb libgtk-3-dev libcairo2-dev libgirepository1.0-dev libglib2.0-dev \
-            pkg-config adb dpkg-dev python3-gi python3-cairo
-          python -m pip install --upgrade pip build
-          pip install pycairo PyGObject websockets python-xlib pytest pytest-asyncio
+            xvfb libgtk-3-0 libcairo2 python3-gi python3-gi-cairo python3-cairo \
+            python3-websockets python3-xlib python3-pytest python3-pytest-asyncio \
+            python3-qrcode python3-pil python3-build dpkg-dev adb
 
       - name: Run unified monorepo build
         run: |
           chmod +x scripts/build-all.sh
           ./scripts/build-all.sh
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release Assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

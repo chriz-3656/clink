@@ -20,6 +20,7 @@ from clink import __version__
 from clink.config.settings import ClinkConfig
 from clink.devices.pairing import PairingManager
 from clink.devices.adb_manager import AdbManager
+from clink.devices.qr_manager import generate_pairing_qr_image, QR_CACHE_PATH
 from clink.input.x11_injector import X11InputInjector
 from clink.overlay.renderer import OverlayRenderer
 from clink.overlay.window import OverlayWindow
@@ -68,7 +69,7 @@ class ControlCenterWindow(Gtk.Window):
         self.server_thread: Optional[threading.Thread] = None
         self.is_running = False
 
-        self.set_default_size(520, 680)
+        self.set_default_size(540, 740)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.connect("destroy", self.on_close)
 
@@ -114,16 +115,16 @@ class ControlCenterWindow(Gtk.Window):
         status_row.pack_end(self.service_toggle, False, False, 0)
         status_box.pack_start(status_row, False, False, 0)
 
-        lan_ip = get_lan_ip()
+        self.lan_ip = get_lan_ip()
         self.address_label = Gtk.Label(
-            label=f"Local Address: ws://127.0.0.1:{self.config.port} (USB)\nWi-Fi Address: ws://{lan_ip}:{self.config.port}"
+            label=f"Local (USB): ws://127.0.0.1:{self.config.port}\nWi-Fi LAN:   ws://{self.lan_ip}:{self.config.port}"
         )
         self.address_label.set_xalign(0)
         status_box.pack_start(self.address_label, False, False, 0)
 
-        # 2. Pairing PIN Display Card
-        pin_frame = Gtk.Frame(label=" Device Pairing PIN ")
-        pin_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        # 2. Pairing PIN & QR Code Card
+        pin_frame = Gtk.Frame(label=" Instant Device Pairing (PIN & QR Code) ")
+        pin_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         pin_box.set_margin_top(12)
         pin_box.set_margin_bottom(12)
         pin_box.set_margin_start(14)
@@ -131,24 +132,36 @@ class ControlCenterWindow(Gtk.Window):
         pin_frame.add(pin_box)
         main_box.pack_start(pin_frame, False, False, 0)
 
-        pin_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        pairing_content_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+
+        # Left column: PIN & New PIN button
+        pin_info_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         current_pin = self.pairing_mgr.get_current_pin()
         formatted_pin = f"{current_pin[:3]} {current_pin[3:]}" if len(current_pin) == 6 else current_pin
+        
         self.pin_display = Gtk.Label()
         self.pin_display.set_markup(f"<span size='xx-large' weight='bold' foreground='#FF3366'>{formatted_pin}</span>")
-        pin_row.pack_start(self.pin_display, True, True, 0)
+        self.pin_display.set_xalign(0)
+        pin_info_col.pack_start(self.pin_display, False, False, 0)
 
-        regen_btn = Gtk.Button(label="New PIN")
+        regen_btn = Gtk.Button(label="Generate New PIN")
         regen_btn.connect("clicked", self.on_regenerate_pin)
-        pin_row.pack_end(regen_btn, False, False, 0)
-        pin_box.pack_start(pin_row, False, False, 0)
+        pin_info_col.pack_start(regen_btn, False, False, 0)
 
         pin_hint = Gtk.Label(
-            label="When connecting from Android, enter this 6-digit PIN to authorize and securely pair your device."
+            label="Scan the QR code with Clink on Android or enter the 6-digit PIN to pair securely."
         )
         pin_hint.set_line_wrap(True)
         pin_hint.set_xalign(0)
-        pin_box.pack_start(pin_hint, False, False, 0)
+        pin_info_col.pack_start(pin_hint, False, False, 0)
+        pairing_content_row.pack_start(pin_info_col, True, True, 0)
+
+        # Right column: QR Code Image
+        qr_path = generate_pairing_qr_image(self.lan_ip, self.config.port, current_pin)
+        self.qr_image = Gtk.Image.new_from_file(str(qr_path))
+        pairing_content_row.pack_end(self.qr_image, False, False, 0)
+
+        pin_box.pack_start(pairing_content_row, False, False, 0)
 
         # 3. Quick USB Setup Card
         usb_frame = Gtk.Frame(label=" USB Connection (ADB) ")
@@ -273,6 +286,8 @@ class ControlCenterWindow(Gtk.Window):
         new_pin = self.pairing_mgr.generate_pin()
         formatted = f"{new_pin[:3]} {new_pin[3:]}" if len(new_pin) == 6 else new_pin
         self.pin_display.set_markup(f"<span size='xx-large' weight='bold' foreground='#FF3366'>{formatted}</span>")
+        qr_path = generate_pairing_qr_image(self.lan_ip, self.config.port, new_pin)
+        self.qr_image.set_from_file(str(qr_path))
 
     def on_refresh_usb(self, *args) -> None:
         if not self.adb_mgr.is_adb_available():

@@ -39,6 +39,8 @@ fun HomeScreen(
     var wifiPort by remember { mutableStateOf(viewModel.preferences.port.toString()) }
     var showPinDialog by remember { mutableStateOf(false) }
     var pinInput by remember { mutableStateOf("") }
+    var showQrDialog by remember { mutableStateOf(false) }
+    var qrPayloadInput by remember { mutableStateOf("") }
 
     LaunchedEffect(status) {
         if (status == ConnectionStatus.PAIRING_REQUIRED) {
@@ -228,17 +230,31 @@ fun HomeScreen(
                     shape = RoundedCornerShape(14.dp)
                 )
                 Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        val p = wifiPort.toIntOrNull() ?: 8765
-                        viewModel.connectWifi(wifiHost.trim(), p)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = RoundedCornerShape(14.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(Icons.Default.Wifi, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Connect via Wi-Fi", fontWeight = FontWeight.SemiBold)
+                    Button(
+                        onClick = {
+                            val p = wifiPort.toIntOrNull() ?: 8765
+                            viewModel.connectWifi(wifiHost.trim(), p)
+                        },
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.Wifi, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Connect Wi-Fi")
+                    }
+                    FilledTonalButton(
+                        onClick = { showQrDialog = true },
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Scan QR")
+                    }
                 }
             }
 
@@ -324,6 +340,46 @@ fun HomeScreen(
                     viewModel.clearPairingError()
                     viewModel.disconnect()
                 }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // QR Instant Pairing Dialog
+    if (showQrDialog) {
+        AlertDialog(
+            onDismissRequest = { showQrDialog = false },
+            title = { Text("QR Code Instant Pairing") },
+            text = {
+                Column {
+                    Text("Scan the QR code on your Linux Control Center or paste the pairing URI:")
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = qrPayloadInput,
+                        onValueChange = { qrPayloadInput = it },
+                        placeholder = { Text("clink://pair?host=... or 192.168.x.x:8765:pin") },
+                        singleLine = false,
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (qrPayloadInput.isNotBlank()) {
+                            viewModel.handleQrPayload(qrPayloadInput)
+                            qrPayloadInput = ""
+                            showQrDialog = false
+                        }
+                    }
+                ) {
+                    Text("Pair Instantly")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showQrDialog = false }) {
                     Text("Cancel")
                 }
             }
