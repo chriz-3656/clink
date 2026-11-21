@@ -21,21 +21,23 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Set up Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Install Linux build dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            xvfb libgtk-3-dev libcairo2-dev python3-gi adb dpkg-dev
+            xvfb libgtk-3-dev libcairo2-dev libgirepository1.0-dev libglib2.0-dev \
+            pkg-config adb dpkg-dev python3-gi python3-cairo
           python -m pip install --upgrade pip build
-          pip install websockets pycairo PyGObject python-xlib pytest pytest-asyncio
+          pip install pycairo PyGObject websockets python-xlib pytest pytest-asyncio
 
       - name: Run unified monorepo build
         run: |
@@ -46,6 +48,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          gh release upload ${{ github.ref_name }} \
+            dist/clink-android-debug.apk \
+            dist/clink-android-release.apk \
+            dist/clink_1.0.0_all.deb \
+            dist/clink-1.0.0-py3-none-any.whl \
+            dist/clink-1.0.0.tar.gz \
+            dist/clink-linux-1.0.0-x86_64.tar.gz \
+            dist/SHA256SUMS.txt \
+            --clobber || \
           gh release create ${{ github.ref_name }} \
             dist/clink-android-debug.apk \
             dist/clink-android-release.apk \
