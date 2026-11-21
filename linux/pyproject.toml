@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clink"
+version = "1.0.0"
+description = "Android-powered drawing tablet and real-time desktop annotation system for Linux"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    {name = "chriz-3656", email = "chriz-3656@users.noreply.github.com"}
+]
+dependencies = [
+    "websockets>=11.0",
+    "pycairo>=1.20.0",
+    "PyGObject>=3.42.0",
+    "python-xlib>=0.33"
+]
+
+[project.scripts]
+clink = "clink.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

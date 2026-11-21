@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Clink
+Comment=Android-powered desktop annotation and drawing tablet
+Exec=clink start
+Icon=clink
+Terminal=true
+Type=Application
+Categories=Graphics;Utility;
+Keywords=tablet;stylus;annotation;whiteboard;

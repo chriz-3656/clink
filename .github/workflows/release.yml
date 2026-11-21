@@ -1,0 +1,58 @@
+name: Release Automation
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgtk-3-dev libcairo2-dev python3-gi adb dpkg-dev
+          python -m pip install --upgrade pip build
+          pip install websockets pycairo PyGObject python-xlib pytest pytest-asyncio
+
+      - name: Run unified monorepo build
+        run: |
+          chmod +x scripts/build-all.sh
+          ./scripts/build-all.sh
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            dist/clink-android-debug.apk \
+            dist/clink-android-release.apk \
+            dist/clink_1.0.0_all.deb \
+            dist/clink-1.0.0-py3-none-any.whl \
+            dist/clink-1.0.0.tar.gz \
+            dist/clink-linux-1.0.0-x86_64.tar.gz \
+            dist/SHA256SUMS.txt \
+            --title "Clink ${{ github.ref_name }}" \
+            --notes "Production Release of Clink: Android-powered drawing tablet and real-time desktop annotation system for Linux."

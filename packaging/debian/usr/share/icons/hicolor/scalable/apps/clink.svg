@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="stylusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF3366"/>
+      <stop offset="100%" stop-color="#FF6B8B"/>
+    </linearGradient>
+    <linearGradient id="canvasGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF"/>
+      <stop offset="100%" stop-color="#0091EA"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="108" fill="#121218"/>
+  <!-- Canvas Ribbon Stroke -->
+  <path d="M 80,380 C 180,450 340,430 430,280 C 470,210 440,140 370,160 C 280,185 240,310 320,350 C 370,375 420,330 440,290" 
+        fill="none" stroke="url(#canvasGrad)" stroke-width="28" stroke-linecap="round"/>
+  <!-- Stylus Body -->
+  <path d="M 170,370 L 210,230 L 320,120 C 340,100 370,100 390,120 C 410,140 410,170 390,190 L 280,300 L 140,340 Z" 
+        fill="url(#stylusGrad)"/>
+  <!-- Stylus Nib Tip -->
+  <polygon points="140,340 170,370 120,390" fill="#FFFFFF"/>
+</svg>
