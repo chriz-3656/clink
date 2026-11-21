@@ -137,4 +137,4 @@ In addition to or in parallel with Google Play, open-source Android apps commonl
    - Indexes release APKs directly from GitHub Releases.
    - Instant publication without waiting for F-Droid's build cycle.
 3. **GitHub Releases & Direct APK**:
-   - Available immediately (already published under [v1.0.5](https://github.com/chriz-3656/clink/releases)).
+   - Available immediately (published under [GitHub Releases](https://github.com/chriz-3656/clink/releases)).
