@@ -75,6 +75,7 @@ class ControlCenterWindow(Gtk.Window):
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.server_thread: Optional[threading.Thread] = None
         self.is_running = False
+        self._adb_configured = False
 
         self.set_default_size(540, 740)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -82,6 +83,9 @@ class ControlCenterWindow(Gtk.Window):
 
         self._build_ui()
         self.start_server()
+
+        if HAS_GTK:
+            GLib.timeout_add_seconds(3, self._auto_check_usb)
 
     def _build_ui(self) -> None:
         header = Gtk.HeaderBar()
@@ -267,10 +271,37 @@ class ControlCenterWindow(Gtk.Window):
         self.server_thread.start()
         self.is_running = True
 
-        self.overlay_window.show_all()
+        if self.config.overlay_enabled:
+            self.overlay_window.show_all()
+            self.overlay_window.apply_click_through(self.config.click_through)
+
+        # Auto-configure ADB reverse on server start if device is plugged in
+        if self.adb_mgr.is_adb_available():
+            devs = self.adb_mgr.list_connected_devices()
+            if devs:
+                if self.adb_mgr.setup_reverse_port():
+                    self._adb_configured = True
+                    self.usb_status_label.set_markup(
+                        f"<span foreground='#00E676'><b>USB Active:</b> {devs[0]['model']} (Port {self.config.port} forwarded)</span>"
+                    )
+
         self.status_label.set_markup("Service Status: <span foreground='#00E676' weight='bold'>Active & Listening</span>")
         PID_FILE.parent.mkdir(parents=True, exist_ok=True)
         PID_FILE.write_text(str(os.getpid()))
+
+    def _auto_check_usb(self) -> bool:
+        if self.is_running and self.adb_mgr.is_adb_available():
+            devices = self.adb_mgr.list_connected_devices()
+            if devices and not self._adb_configured:
+                if self.adb_mgr.setup_reverse_port():
+                    self._adb_configured = True
+                    info = f"{devices[0]['model']} ({devices[0]['serial']})"
+                    self.usb_status_label.set_markup(
+                        f"<span foreground='#00E676'><b>USB Active:</b> {info} (Port {self.config.port} forwarded)</span>"
+                    )
+            elif not devices:
+                self._adb_configured = False
+        return True
 
     def stop_server(self) -> None:
         if not self.is_running or not self.loop:

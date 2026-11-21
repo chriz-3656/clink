@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import com.chriz.clink.data.model.*
 import com.chriz.clink.data.network.ConnectionStatus
+import com.chriz.clink.data.network.NetworkUtils
 import com.chriz.clink.data.network.WebSocketClient
 import com.chriz.clink.data.preferences.ClinkPreferences
 import com.chriz.clink.data.repository.SavedSession
@@ -89,7 +90,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun connectUsb() {
         _pairingError.value = null
-        client.connect("127.0.0.1", preferences.port, preferences.authToken, preferences.deviceId)
+        val gateway = NetworkUtils.getGatewayIp(getApplication())
+        client.connectUsb(preferences.port, preferences.authToken, preferences.deviceId, fallbackHost = gateway)
     }
 
     fun connectWifi(host: String, port: Int) {
@@ -102,6 +104,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun submitPin(pin: String) {
         _pairingError.value = null
         client.sendPairRequest(pin)
+    }
+
+    fun setPairingError(err: String?) {
+        _pairingError.value = err
     }
 
     fun handleQrPayload(payload: String): Boolean {
@@ -131,10 +137,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             preferences.host = h
             preferences.port = p
-            connectWifi(h, p)
+            _pairingError.value = null
             if (pin.isNotBlank()) {
-                submitPin(pin)
+                client.setPendingPin(pin)
             }
+            client.connect(h, p, preferences.authToken, preferences.deviceId)
             return true
         } catch (e: Exception) {
             return false

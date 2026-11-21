@@ -42,6 +42,12 @@ def run_server_daemon(config: ClinkConfig, pairing_mgr: Optional[PairingManager]
     # Create GTK overlay window
     window = OverlayWindow(renderer=renderer, click_through=config.click_through)
 
+    # Attempt automatic ADB reverse setup if devices are connected
+    adb_mgr = AdbManager(config.port)
+    if adb_mgr.is_adb_available():
+        if adb_mgr.list_connected_devices():
+            adb_mgr.setup_reverse_port()
+
     server = ClinkServer(
         config=config,
         renderer=renderer,
@@ -76,7 +82,9 @@ def run_server_daemon(config: ClinkConfig, pairing_mgr: Optional[PairingManager]
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    window.show_all()
+    if config.overlay_enabled:
+        window.show_all()
+        window.apply_click_through(config.click_through)
     print(f"Clink {__version__} running on ws://{config.host}:{config.port} (Overlay Active)")
     Gtk.main()
 

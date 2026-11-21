@@ -55,6 +55,19 @@ class WebSocketClient(
     private var authToken = ""
     private var currentDeviceId = "android_device"
     private var pingStartTime = 0L
+    private var pendingPin: String? = null
+    private var fallbackUsbHost: String? = null
+    private var isTryingFallback = false
+
+    fun setPendingPin(pin: String?) {
+        pendingPin = pin
+    }
+
+    fun connectUsb(port: Int, token: String = "", deviceId: String = "android_device", fallbackHost: String? = null) {
+        fallbackUsbHost = fallbackHost
+        isTryingFallback = false
+        connect("127.0.0.1", port, token, deviceId)
+    }
 
     fun connect(host: String, port: Int, token: String = "", deviceId: String = "android_device") {
         currentHost = host
@@ -74,6 +87,9 @@ class WebSocketClient(
                 _status.value = ConnectionStatus.CONNECTED
                 sendHello()
                 startPingLoop()
+                if (pendingPin != null) {
+                    sendPairRequest(pendingPin!!)
+                }
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
@@ -93,6 +109,12 @@ class WebSocketClient(
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
                 Log.e(TAG, "WebSocket failure: ${t.message}")
+                if (!isTryingFallback && fallbackUsbHost != null && fallbackUsbHost != "127.0.0.1") {
+                    Log.i(TAG, "Attempting USB Tethering fallback to gateway: $fallbackUsbHost")
+                    isTryingFallback = true
+                    connect(fallbackUsbHost!!, currentPort, authToken, currentDeviceId)
+                    return
+                }
                 _status.value = ConnectionStatus.ERROR
             }
         })
@@ -119,11 +141,22 @@ class WebSocketClient(
                     _displayInfo.value = ack.display
                     if (ack.authenticated) {
                         _status.value = ConnectionStatus.AUTHENTICATED
+                        pendingPin = null
                     } else if (ack.pairing_required) {
-                        _status.value = ConnectionStatus.PAIRING_REQUIRED
+                        if (pendingPin != null) {
+                            val pinToSend = pendingPin!!
+                            pendingPin = null
+                            sendPairRequest(pinToSend)
+                        } else {
+                            _status.value = ConnectionStatus.PAIRING_REQUIRED
+                        }
                     } else {
                         if (authToken.isNotBlank()) {
                             sendAuth(authToken)
+                        } else if (pendingPin != null) {
+                            val pinToSend = pendingPin!!
+                            pendingPin = null
+                            sendPairRequest(pinToSend)
                         } else {
                             _status.value = ConnectionStatus.PAIRING_REQUIRED
                         }
@@ -131,6 +164,7 @@ class WebSocketClient(
                 }
                 "pair_ack" -> {
                     val ack = ClinkJson.decodeFromString<PairAckMsg>(text)
+                    pendingPin = null
                     if (ack.success && ack.token != null) {
                         authToken = ack.token
                         onTokenReceived(ack.token)

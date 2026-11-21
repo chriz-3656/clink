@@ -1,5 +1,7 @@
 package com.chriz.clink.ui.screens
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -20,6 +23,8 @@ import androidx.compose.ui.unit.sp
 import com.chriz.clink.R
 import com.chriz.clink.data.network.ConnectionStatus
 import com.chriz.clink.viewmodel.MainViewModel
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 @Composable
 fun HomeScreen(
@@ -41,6 +46,20 @@ fun HomeScreen(
     var pinInput by remember { mutableStateOf("") }
     var showQrDialog by remember { mutableStateOf(false) }
     var qrPayloadInput by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    val qrScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            val qrText = result.contents.trim()
+            val success = viewModel.handleQrPayload(qrText)
+            if (success) {
+                Toast.makeText(context, "QR code recognized! Connecting...", Toast.LENGTH_SHORT).show()
+            } else {
+                viewModel.setPairingError("Unrecognized QR format.")
+                Toast.makeText(context, "Invalid QR code format.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     LaunchedEffect(status) {
         if (status == ConnectionStatus.PAIRING_REQUIRED) {
@@ -247,7 +266,15 @@ fun HomeScreen(
                         Text("Connect Wi-Fi")
                     }
                     FilledTonalButton(
-                        onClick = { showQrDialog = true },
+                        onClick = {
+                            val options = ScanOptions().apply {
+                                setPrompt("Point camera at Desktop Companion QR Code")
+                                setBeepEnabled(true)
+                                setOrientationLocked(false)
+                                setBarcodeImageEnabled(false)
+                            }
+                            qrScannerLauncher.launch(options)
+                        },
                         modifier = Modifier.weight(1f).height(50.dp),
                         shape = RoundedCornerShape(14.dp)
                     ) {
@@ -255,6 +282,13 @@ fun HomeScreen(
                         Spacer(Modifier.width(6.dp))
                         Text("Scan QR")
                     }
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(
+                    onClick = { showQrDialog = true },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Or enter pairing URI / PIN manually", style = MaterialTheme.typography.bodySmall)
                 }
             }
 
