@@ -18,6 +18,9 @@ if [ -z "${ANDROID_HOME:-}" ] && [ -d "/data/android-sdk" ]; then
     export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 fi
 
+VERSION=$(python3 -c "import re; print(re.search(r'__version__\s*=\s*[\"\']([^\"\']+)[\"\']', open('$REPO_ROOT/linux/src/clink/__init__.py').read()).group(1))" 2>/dev/null || echo "1.0.6")
+echo "Building Clink version: $VERSION"
+
 # 2. Run Linux Tests
 echo "[2/7] Running Linux Companion automated tests..."
 PYTHONPATH="$REPO_ROOT/linux/src:$REPO_ROOT/linux/tests" pytest -v "$REPO_ROOT/linux/tests"
@@ -29,21 +32,22 @@ python3 -m build --outdir "$DIST_DIR"
 
 # 4. Build Debian Package
 echo "[4/7] Packaging Debian .deb distribution..."
-DEB_ROOT="$DIST_DIR/debian/clink_1.0.0_all"
+DEB_ROOT="$DIST_DIR/debian/clink_${VERSION}_all"
 rm -rf "$DEB_ROOT"
 mkdir -p "$DEB_ROOT/DEBIAN" "$DEB_ROOT/usr/bin" "$DEB_ROOT/usr/lib/python3/dist-packages/clink" \
          "$DEB_ROOT/usr/share/applications" "$DEB_ROOT/usr/share/icons/hicolor/scalable/apps"
 
 cp "$REPO_ROOT/packaging/debian/DEBIAN/control" "$DEB_ROOT/DEBIAN/"
+sed -i "s/^Version:.*/Version: $VERSION/" "$DEB_ROOT/DEBIAN/control"
 cp "$REPO_ROOT/packaging/debian/usr/bin/clink" "$DEB_ROOT/usr/bin/"
 cp "$REPO_ROOT/packaging/debian/usr/share/applications/clink.desktop" "$DEB_ROOT/usr/share/applications/"
 cp "$REPO_ROOT/assets/logo/clink-logo.svg" "$DEB_ROOT/usr/share/icons/hicolor/scalable/apps/clink.svg"
 cp -r "$REPO_ROOT/linux/src/clink/"* "$DEB_ROOT/usr/lib/python3/dist-packages/clink/"
-dpkg-deb --build "$DEB_ROOT" "$DIST_DIR/clink_1.0.0_all.deb"
+dpkg-deb --build "$DEB_ROOT" "$DIST_DIR/clink_${VERSION}_all.deb"
 
 # 5. Build Portable Tarball
 echo "[5/7] Creating portable Linux tarball..."
-tar -czf "$DIST_DIR/clink-linux-1.0.0-x86_64.tar.gz" -C "$REPO_ROOT/linux" src pyproject.toml requirements.txt
+tar -czf "$DIST_DIR/clink-linux-${VERSION}-x86_64.tar.gz" -C "$REPO_ROOT/linux" src pyproject.toml requirements.txt
 
 # 6. Build Android APKs, App Bundle & Run Android Tests
 echo "[6/7] Building Android application, App Bundle, and running tests..."
@@ -57,8 +61,8 @@ cp "$REPO_ROOT/android/app/build/outputs/bundle/release/app-release.aab" "$DIST_
 # 7. Generate Checksums
 echo "[7/7] Generating SHA256 checksums..."
 cd "$DIST_DIR"
-sha256sum clink-1.0.0-py3-none-any.whl clink-1.0.0.tar.gz clink_1.0.0_all.deb \
-          clink-linux-1.0.0-x86_64.tar.gz clink-android-debug.apk clink-android-release.apk \
+sha256sum clink-${VERSION}-py3-none-any.whl clink-${VERSION}.tar.gz clink_${VERSION}_all.deb \
+          clink-linux-${VERSION}-x86_64.tar.gz clink-android-debug.apk clink-android-release.apk \
           clink-android-release.aab > SHA256SUMS.txt
 
 echo "=========================================================="

@@ -220,7 +220,7 @@ fun SettingsScreen(
                         }
                     }
 
-                    Text("Clink v1.0.0 • License: MIT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                    Text("Clink v1.0.6 • License: MIT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                 }
             }
 

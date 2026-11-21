@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clink"
-version = "1.0.0"
+version = "1.0.6"
 description = "Android-powered drawing tablet and real-time desktop annotation system for Linux"
 readme = "README.md"
 requires-python = ">=3.10"
