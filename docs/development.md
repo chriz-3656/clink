@@ -59,14 +59,3 @@ Run the unified monorepo build script:
 ```
 
 This validates the toolchain, runs all Linux and Android test suites, builds the Python wheel, packages the `.deb` distribution, builds the Linux tarball, and compiles both Debug and Release Android APKs into the `dist/` directory.
-
----
-
-## Generating Android App Bundle (`.aab`) for Play Store
-
-To generate an `.aab` for Google Play Store upload:
-```bash
-cd android
-./gradlew bundleRelease
-```
-Output: `android/app/build/outputs/bundle/release/app-release.aab`

@@ -18,7 +18,6 @@
 [Features](#-features) •
 [Connection Modes](#-connection-transports) •
 [Portable Hotspot Guide](docs/hotspot-guide.md) •
-[Play Store Guide](docs/playstore-publishing.md) •
 [Architecture](docs/architecture.md)
 
 </div>
@@ -170,7 +169,6 @@ See [docs/architecture.md](docs/architecture.md) for full architectural document
 ## 📦 Publishing Roadmap
 
 - [x] GitHub Releases (`.deb`, `.tar.gz`, `.whl`, `.apk`)
-- [ ] [Google Play Store Publishing](docs/playstore-publishing.md) (In Review)
 - [ ] F-Droid Official Inclusion
 - [ ] Flathub Flatpak for Linux
 

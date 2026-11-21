@@ -49,21 +49,19 @@ dpkg-deb --build "$DEB_ROOT" "$DIST_DIR/clink_${VERSION}_all.deb"
 echo "[5/7] Creating portable Linux tarball..."
 tar -czf "$DIST_DIR/clink-linux-${VERSION}-x86_64.tar.gz" -C "$REPO_ROOT/linux" src pyproject.toml requirements.txt
 
-# 6. Build Android APKs, App Bundle & Run Android Tests
-echo "[6/7] Building Android application, App Bundle, and running tests..."
+# 6. Build Android APKs & Run Android Tests
+echo "[6/7] Building Android application and running tests..."
 cd "$REPO_ROOT/android"
-./gradlew testDebugUnitTest assembleDebug assembleRelease bundleRelease
+./gradlew testDebugUnitTest assembleDebug assembleRelease
 
 cp "$REPO_ROOT/android/app/build/outputs/apk/debug/app-debug.apk" "$DIST_DIR/clink-android-debug.apk"
 cp "$REPO_ROOT/android/app/build/outputs/apk/release/app-release.apk" "$DIST_DIR/clink-android-release.apk"
-cp "$REPO_ROOT/android/app/build/outputs/bundle/release/app-release.aab" "$DIST_DIR/clink-android-release.aab"
 
 # 7. Generate Checksums
 echo "[7/7] Generating SHA256 checksums..."
 cd "$DIST_DIR"
 sha256sum clink-${VERSION}-py3-none-any.whl clink-${VERSION}.tar.gz clink_${VERSION}_all.deb \
-          clink-linux-${VERSION}-x86_64.tar.gz clink-android-debug.apk clink-android-release.apk \
-          clink-android-release.aab > SHA256SUMS.txt
+          clink-linux-${VERSION}-x86_64.tar.gz clink-android-debug.apk clink-android-release.apk > SHA256SUMS.txt
 
 echo "=========================================================="
 echo "                 BUILD COMPLETE: SUMMARY                  "

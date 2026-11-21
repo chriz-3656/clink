@@ -12,7 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Matching Dark/Cyberpunk Theme on Linux**: Implemented custom GTK3 CSS provider theming matching the Android app aesthetic (`#121218` dark background, `#191926` rounded card containers, Clink Pink `#FF3366` primary buttons, dark glass secondary buttons, and active status pill badges).
 - **Custom Section Icons & Modern Cards**: Replaced standard GTK frames with modern card containers featuring custom icons (`⚡ COMPANION SERVICE`, `📱 INSTANT PAIRING`, `🔌 USB CONNECTION`, `🎨 DESKTOP OVERLAY`, `📲 PAIRED DEVICES`, `ℹ️ DEVELOPER & PROJECT`).
-- **Google Play Store App Bundle (`.aab`)**: Added automated Android App Bundle compilation (`clink-android-release.aab`) to the unified build script and GitHub release workflow.
 
 ### Fixed
 - **Synchronized Artifact Version Naming**: Updated all package metadata and artifacts from outdated `1.0.0` references to dynamic semantic versioning (`clink_1.0.6_all.deb`, `clink-linux-1.0.6-x86_64.tar.gz`, `clink-1.0.6-py3-none-any.whl`, Android `versionCode 6` / `versionName 1.0.6`).
