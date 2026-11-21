@@ -155,12 +155,18 @@ class ControlCenterWindow(Gtk.Window):
         self.pin_display.set_xalign(0)
         pin_info_col.pack_start(self.pin_display, False, False, 0)
 
+        pin_btn_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         regen_btn = Gtk.Button(label="Generate New PIN")
         regen_btn.connect("clicked", self.on_regenerate_pin)
-        pin_info_col.pack_start(regen_btn, False, False, 0)
+        pin_btn_row.pack_start(regen_btn, True, True, 0)
+
+        refresh_ip_btn = Gtk.Button(label="Refresh Network IP")
+        refresh_ip_btn.connect("clicked", lambda b: self.refresh_network_ip(force=True))
+        pin_btn_row.pack_end(refresh_ip_btn, False, False, 0)
+        pin_info_col.pack_start(pin_btn_row, False, False, 0)
 
         pin_hint = Gtk.Label(
-            label="Scan the QR code with Clink on Android or enter the 6-digit PIN to pair securely."
+            label="Scan the QR code with Clink on Android or enter the 6-digit PIN to pair securely over Wi-Fi / Hotspot."
         )
         pin_hint.set_line_wrap(True)
         pin_hint.set_xalign(0)
@@ -323,18 +329,31 @@ class ControlCenterWindow(Gtk.Window):
         PID_FILE.parent.mkdir(parents=True, exist_ok=True)
         PID_FILE.write_text(str(os.getpid()))
 
+    def refresh_network_ip(self, force: bool = False) -> None:
+        new_ip = get_lan_ip()
+        if new_ip != self.lan_ip or force:
+            self.lan_ip = new_ip
+            self.address_label.set_text(
+                f"Local (USB): ws://127.0.0.1:{self.config.port}\nWi-Fi / Hotspot: ws://{self.lan_ip}:{self.config.port}"
+            )
+            current_pin = self.pairing_mgr.get_current_pin()
+            qr_path = generate_pairing_qr_image(self.lan_ip, self.config.port, current_pin)
+            self.qr_image.set_from_file(str(qr_path))
+
     def _auto_check_usb(self) -> bool:
-        if self.is_running and self.adb_mgr.is_adb_available():
-            devices = self.adb_mgr.list_connected_devices()
-            if devices and not self._adb_configured:
-                if self.adb_mgr.setup_reverse_port():
-                    self._adb_configured = True
-                    info = f"{devices[0]['model']} ({devices[0]['serial']})"
-                    self.usb_status_label.set_markup(
-                        f"<span foreground='#00E676'><b>USB Active:</b> {info} (Port {self.config.port} forwarded)</span>"
-                    )
-            elif not devices:
-                self._adb_configured = False
+        if self.is_running:
+            self.refresh_network_ip(force=False)
+            if self.adb_mgr.is_adb_available():
+                devices = self.adb_mgr.list_connected_devices()
+                if devices and not self._adb_configured:
+                    if self.adb_mgr.setup_reverse_port():
+                        self._adb_configured = True
+                        info = f"{devices[0]['model']} ({devices[0]['serial']})"
+                        self.usb_status_label.set_markup(
+                            f"<span foreground='#00E676'><b>USB Active:</b> {info} (Port {self.config.port} forwarded)</span>"
+                        )
+                elif not devices:
+                    self._adb_configured = False
         return True
 
     def stop_server(self) -> None:
@@ -355,6 +374,7 @@ class ControlCenterWindow(Gtk.Window):
             self.stop_server()
 
     def on_regenerate_pin(self, button: Gtk.Button) -> None:
+        self.refresh_network_ip(force=False)
         new_pin = self.pairing_mgr.generate_pin()
         formatted = f"{new_pin[:3]} {new_pin[3:]}" if len(new_pin) == 6 else new_pin
         self.pin_display.set_markup(f"<span size='xx-large' weight='bold' foreground='#FF3366'>{formatted}</span>")
