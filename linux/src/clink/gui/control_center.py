@@ -11,10 +11,17 @@ import time
 from pathlib import Path
 from typing import Optional
 
-import gi
-gi.require_version("Gtk", "3.0")
-gi.require_version("Gdk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+try:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gtk, Gdk, GLib
+    HAS_GTK = True
+except Exception:
+    HAS_GTK = False
+    Gtk = object  # type: ignore
+    Gdk = object  # type: ignore
+    GLib = object  # type: ignore
 
 from clink import __version__
 from clink.config.settings import ClinkConfig
@@ -353,6 +360,9 @@ class ControlCenterWindow(Gtk.Window):
         Gtk.main_quit()
 
 def launch_control_center() -> None:
+    if not HAS_GTK:
+        print("Error: GTK 3 is not available. Please install gir1.2-gtk-3.0 and python3-gi.", file=sys.stderr)
+        sys.exit(1)
     window = ControlCenterWindow()
     window.show_all()
     Gtk.main()

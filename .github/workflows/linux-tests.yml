@@ -17,7 +17,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            xvfb libgtk-3-0 libcairo2 python3-gi python3-gi-cairo python3-cairo \
+            xvfb libgtk-3-0 gir1.2-gtk-3.0 libcairo2 python3-gi python3-gi-cairo python3-cairo \
             python3-websockets python3-xlib python3-pytest python3-pytest-asyncio \
             python3-qrcode python3-pil python3-build adb
 
