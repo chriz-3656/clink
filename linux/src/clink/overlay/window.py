@@ -50,6 +50,7 @@ def set_x11_click_through(xid: int, enable: bool, width: int = 1920, height: int
     """Set X11 window input shape to empty (click-through) or full rectangle."""
     if not _libx11:
         return False
+    dpy = None
     try:
         dpy = _libx11.XOpenDisplay(None)
         if not dpy:
@@ -58,16 +59,22 @@ def set_x11_click_through(xid: int, enable: bool, width: int = 1920, height: int
             if _libxfixes and hasattr(_libxfixes, "XFixesSetWindowShapeRegion"):
                 # ShapeInput = 2, region 0 = empty (clicks pass through completely)
                 _libxfixes.XFixesSetWindowShapeRegion(dpy, xid, 2, 0, 0, 0)
-            elif _libxext and hasattr(_libxext, "XShapeCombineRectangles"):
+            if _libxext and hasattr(_libxext, "XShapeCombineRectangles"):
                 _libxext.XShapeCombineRectangles(dpy, xid, 2, 0, 0, None, 0, 0, 0)
         else:
             if _libxext and hasattr(_libxext, "XShapeCombineRectangles"):
                 rect = _XRectangle(0, 0, width, height)
                 _libxext.XShapeCombineRectangles(dpy, xid, 2, 0, 0, ctypes.byref(rect), 1, 0, 0)
         _libx11.XFlush(dpy)
+        _libx11.XCloseDisplay(dpy)
         return True
     except Exception as e:
         logger.warning("Error applying X11 click-through: %s", e)
+        if dpy:
+            try:
+                _libx11.XCloseDisplay(dpy)
+            except Exception:
+                pass
         return False
 
 try:
@@ -108,7 +115,7 @@ if HAS_GTK:
             self.set_focus_on_map(False)
             self.set_skip_taskbar_hint(True)
             self.set_skip_pager_hint(True)
-            self.set_type_hint(Gdk.WindowTypeHint.DOCK)
+            self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
             self.set_app_paintable(True)
             self.set_default_size(self.screen_w, self.screen_h)
             self.move(0, 0)
@@ -122,6 +129,14 @@ if HAS_GTK:
             self.connect("realize", self.on_realize)
             self.connect("map", self.on_map)
             self.connect("size-allocate", self.on_size_allocate)
+
+            # Periodic check for expiring annotation strokes
+            GLib.timeout_add(500, self._check_stroke_expiry)
+
+        def _check_stroke_expiry(self) -> bool:
+            if self.renderer.purge_expired_strokes():
+                self.request_redraw()
+            return True
 
         def on_realize(self, widget: Gtk.Widget) -> None:
             self.apply_click_through(self.click_through_enabled)
@@ -139,25 +154,17 @@ if HAS_GTK:
             if not gdk_win:
                 return
 
+            # GDK native pass-through (GTK >= 3.18)
+            if hasattr(gdk_win, "set_pass_through"):
+                gdk_win.set_pass_through(enable)
+
             # Primary: Native X11 XFixes / XShape input region combining
             try:
                 xid = gdk_win.get_xid()
-                if xid and set_x11_click_through(xid, enable, self.renderer.width, self.renderer.height):
-                    return
+                if xid:
+                    set_x11_click_through(xid, enable, self.renderer.width, self.renderer.height)
             except Exception as e:
                 logger.debug("Native X11 shape helper exception: %s", e)
-
-            # Secondary fallback: GDK input_shape_combine_region
-            try:
-                if enable:
-                    empty_region = cairo.Region()
-                    gdk_win.input_shape_combine_region(empty_region, 0, 0)
-                else:
-                    rect = cairo.RectangleInt(0, 0, self.get_allocated_width(), self.get_allocated_height())
-                    full_region = cairo.Region(rect)
-                    gdk_win.input_shape_combine_region(full_region, 0, 0)
-            except Exception as e:
-                logger.debug("GDK input_shape_combine_region fallback: %s", e)
 
         def set_click_through(self, enable: bool) -> None:
             GLib.idle_add(self.apply_click_through, enable)

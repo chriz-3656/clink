@@ -1,18 +1,24 @@
 package com.chriz.clink.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.automirrored.filled.ArrowRightAlt
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.chriz.clink.data.model.DrawingTool
 import com.chriz.clink.ui.components.DrawingCanvas
 import com.chriz.clink.ui.components.FloatingDrawingToolbar
 import com.chriz.clink.ui.components.ModeSegmentedControl
 import com.chriz.clink.viewmodel.MainViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun DrawingScreen(
@@ -30,6 +36,26 @@ fun DrawingScreen(
 
     var showSaveDialog by remember { mutableStateOf(false) }
     var sessionNameInput by remember { mutableStateOf("") }
+    var toolToastText by remember { mutableStateOf<String?>(null) }
+    var toolToastVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(tool) {
+        val toolName = when (tool) {
+            DrawingTool.PEN -> "Pen Tool"
+            DrawingTool.PENCIL -> "Pencil Tool"
+            DrawingTool.HIGHLIGHTER -> "Highlighter"
+            DrawingTool.ERASER -> "Eraser"
+            DrawingTool.LASER -> "Laser Pointer"
+            DrawingTool.LINE -> "Line Shape"
+            DrawingTool.ARROW -> "Arrow Shape"
+            DrawingTool.RECTANGLE -> "Rectangle Shape"
+            DrawingTool.CIRCLE -> "Circle Shape"
+        }
+        toolToastText = toolName
+        toolToastVisible = true
+        delay(1600)
+        toolToastVisible = false
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // Main Drawing Canvas
@@ -51,7 +77,7 @@ fun DrawingScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Top Navigation and Mode Toggle Bar
+        // Top Navigation and Action Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -69,8 +95,69 @@ fun DrawingScreen(
                 onModeSelected = { viewModel.setMode(it) }
             )
 
-            FilledTonalIconButton(onClick = { showSaveDialog = true }) {
-                Icon(Icons.Default.Save, contentDescription = "Save Session")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Instant Clear All Button
+                FilledTonalIconButton(
+                    onClick = { viewModel.clearCanvas() },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                ) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = "Clear All Annotations")
+                }
+
+                FilledTonalIconButton(onClick = { showSaveDialog = true }) {
+                    Icon(Icons.Default.Save, contentDescription = "Save Session")
+                }
+            }
+        }
+
+        // Active Tool Switch Popup (Top Center)
+        AnimatedVisibility(
+            visible = toolToastVisible && toolToastText != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 64.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 6.dp,
+                shadowElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val icon = when (tool) {
+                        DrawingTool.PEN -> Icons.Default.Edit
+                        DrawingTool.PENCIL -> Icons.Default.Create
+                        DrawingTool.HIGHLIGHTER -> Icons.Default.Brush
+                        DrawingTool.ERASER -> Icons.Default.CleaningServices
+                        DrawingTool.LASER -> Icons.Default.Highlight
+                        DrawingTool.LINE -> Icons.Default.HorizontalRule
+                        DrawingTool.ARROW -> Icons.AutoMirrored.Filled.ArrowRightAlt
+                        DrawingTool.RECTANGLE -> Icons.Default.CropSquare
+                        DrawingTool.CIRCLE -> Icons.Default.RadioButtonUnchecked
+                    }
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "$toolToastText Active",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
 

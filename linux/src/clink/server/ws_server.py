@@ -189,6 +189,11 @@ class ClinkServer:
                 self.overlay_window.request_redraw()
             return {"type": "clear_ack"}
 
+        if msg_type == "set_timer":
+            seconds = float(msg.get("seconds", 0.0))
+            self.renderer.fade_timeout = seconds
+            return {"type": "timer_ack", "seconds": seconds}
+
         if msg_type == "laser_pointer":
             self.renderer.set_laser(
                 x=float(msg.get("x", 0.0)),

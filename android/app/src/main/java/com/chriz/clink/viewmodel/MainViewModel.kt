@@ -88,6 +88,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         client.sendMode(newMode)
     }
 
+    fun setAnnotationTimer(seconds: Int) {
+        preferences.annotationTimerSeconds = seconds
+        client.sendTimer(seconds)
+    }
+
     fun connectUsb() {
         _pairingError.value = null
         val gateway = NetworkUtils.getGatewayIp(getApplication())

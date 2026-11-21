@@ -41,4 +41,8 @@ class ClinkPreferences(context: Context) {
     var darkTheme: Boolean
         get() = prefs.getBoolean("dark_theme", true)
         set(value) = prefs.edit().putBoolean("dark_theme", value).apply()
+
+    var annotationTimerSeconds: Int
+        get() = prefs.getInt("annotation_timer", 0)
+        set(value) = prefs.edit().putInt("annotation_timer", value).apply()
 }

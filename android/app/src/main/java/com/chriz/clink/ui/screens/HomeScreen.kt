@@ -183,21 +183,29 @@ fun HomeScreen(
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                     selected = !isWifiMode,
-                    onClick = { isWifiMode = false }
-                ) {
-                    Icon(Icons.Default.Usb, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("USB (ADB)")
-                }
+                    onClick = { isWifiMode = false },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Usb,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    label = { Text("USB (ADB)", fontWeight = FontWeight.SemiBold) }
+                )
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                     selected = isWifiMode,
-                    onClick = { isWifiMode = true }
-                ) {
-                    Icon(Icons.Default.Wifi, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Wi-Fi LAN")
-                }
+                    onClick = { isWifiMode = true },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Wifi,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    label = { Text("Wi-Fi LAN", fontWeight = FontWeight.SemiBold) }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
@@ -268,9 +276,11 @@ fun HomeScreen(
                     FilledTonalButton(
                         onClick = {
                             val options = ScanOptions().apply {
-                                setPrompt("Point camera at Desktop Companion QR Code")
+                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                setPrompt("Align QR code inside the viewfinder rectangle")
+                                setCameraId(0)
                                 setBeepEnabled(true)
-                                setOrientationLocked(false)
+                                setOrientationLocked(true)
                                 setBarcodeImageEnabled(false)
                             }
                             qrScannerLauncher.launch(options)

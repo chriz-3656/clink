@@ -79,3 +79,20 @@ def test_laser():
     assert renderer.laser_pos == (0.5, 0.5)
     renderer.set_laser(0.5, 0.5, False)
     assert renderer.laser_active is False
+
+def test_stroke_timer_auto_fade():
+    renderer = OverlayRenderer(800, 600)
+    renderer.fade_timeout = 0.1  # 100ms
+    st = Stroke("expire_1", "pen", "#FF0000", 2.0, [Point(0.1, 0.1)])
+    renderer.start_stroke(st)
+    renderer.end_stroke("expire_1", Point(0.2, 0.2))
+    assert len(renderer.strokes) == 1
+
+    # Right away, stroke is still valid
+    assert renderer.purge_expired_strokes() is False
+    assert len(renderer.strokes) == 1
+
+    # Simulate passing time
+    renderer.stroke_timestamps["expire_1"] -= 0.5
+    assert renderer.purge_expired_strokes() is True
+    assert len(renderer.strokes) == 0

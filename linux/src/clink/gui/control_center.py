@@ -228,8 +228,26 @@ class ControlCenterWindow(Gtk.Window):
         overlay_row2.pack_end(self.clickthrough_switch, False, False, 0)
         overlay_box.pack_start(overlay_row2, False, False, 0)
 
+        # Annotation auto-fade timer row
+        timer_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        timer_label = Gtk.Label(label="Annotation Duration / Auto-Clear:")
+        timer_label.set_xalign(0)
+        timer_row.pack_start(timer_label, True, True, 0)
+
+        self.timer_combo = Gtk.ComboBoxText()
+        self.timer_combo.append("0", "Never (Persistent)")
+        self.timer_combo.append("3", "3 seconds")
+        self.timer_combo.append("5", "5 seconds")
+        self.timer_combo.append("10", "10 seconds")
+        self.timer_combo.append("30", "30 seconds")
+        self.timer_combo.append("60", "60 seconds")
+        self.timer_combo.set_active_id("0")
+        self.timer_combo.connect("changed", self.on_timer_changed)
+        timer_row.pack_end(self.timer_combo, False, False, 0)
+        overlay_box.pack_start(timer_row, False, False, 0)
+
         action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        clear_btn = Gtk.Button(label="Clear Screen Ink")
+        clear_btn = Gtk.Button(label="Clear All Annotations")
         clear_btn.connect("clicked", self.on_clear_canvas)
         action_row.pack_start(clear_btn, True, True, 0)
 
@@ -253,6 +271,22 @@ class ControlCenterWindow(Gtk.Window):
         devices_frame.add(self.devices_box)
         main_box.pack_start(devices_frame, False, False, 0)
         self.refresh_devices_list()
+
+        # 6. Developer Information Card
+        dev_frame = Gtk.Frame(label=" Developer & Project Information ")
+        dev_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        dev_box.set_margin_top(12)
+        dev_box.set_margin_bottom(12)
+        dev_box.set_margin_start(14)
+        dev_box.set_margin_end(14)
+
+        dev_lbl = Gtk.Label()
+        dev_lbl.set_markup("<b>Developer:</b> chriz-3656\n<b>GitHub:</b> <a href='https://github.com/chriz-3656/clink'>https://github.com/chriz-3656/clink</a>\n<b>Contact:</b> <a href='mailto:chrizmonsaji@proton.me'>chrizmonsaji@proton.me</a>")
+        dev_lbl.set_xalign(0)
+        dev_lbl.set_line_wrap(True)
+        dev_box.pack_start(dev_lbl, False, False, 0)
+        dev_frame.add(dev_box)
+        main_box.pack_start(dev_frame, False, False, 0)
 
         # Update USB status on launch
         self.on_refresh_usb()
@@ -355,6 +389,10 @@ class ControlCenterWindow(Gtk.Window):
 
     def on_clickthrough_toggled(self, switch: Gtk.Switch, param) -> None:
         self.overlay_window.set_click_through(switch.get_active())
+
+    def on_timer_changed(self, combo: Gtk.ComboBoxText) -> None:
+        val = float(combo.get_active_id() or "0")
+        self.renderer.fade_timeout = val
 
     def on_clear_canvas(self, button: Gtk.Button) -> None:
         self.renderer.clear()

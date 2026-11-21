@@ -270,6 +270,11 @@ class WebSocketClient(
     fun sendRedo() = sendMessage(ClinkJson.encodeToString(SimpleActionMsg("redo")))
     fun sendClear() = sendMessage(ClinkJson.encodeToString(SimpleActionMsg("clear")))
 
+    fun sendTimer(seconds: Int) {
+        val json = """{"type":"set_timer","seconds":$seconds}"""
+        sendMessage(json)
+    }
+
     fun sendLaser(x: Float, y: Float, active: Boolean) {
         val msg = LaserPointerMsg(x = x, y = y, active = active)
         sendMessage(ClinkJson.encodeToString(msg))

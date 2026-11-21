@@ -42,6 +42,10 @@ class OverlayRenderer:
         self.laser_active: bool = False
         self.laser_color: str = "#FF0033"
 
+        # Annotation timer / auto-fade duration in seconds (0 = persistent)
+        self.fade_timeout: float = 0.0
+        self.stroke_timestamps: Dict[str, float] = {}
+
         # Offscreen surface for persistent ink
         self.surface: Optional[cairo.ImageSurface] = None
         self._init_surface()
@@ -103,6 +107,7 @@ class OverlayRenderer:
                     self._draw_segment(stroke, stroke.points[-1], final_point)
                 stroke.points.append(final_point)
         stroke.completed = True
+        self.stroke_timestamps[stroke.stroke_id] = time.time()
 
         # Save history state for undo
         self.undo_stack.append([s for s in self.strokes])
@@ -113,6 +118,26 @@ class OverlayRenderer:
             self._render_shape(stroke)
 
         return stroke
+
+    def purge_expired_strokes(self) -> bool:
+        """Remove strokes that have exceeded fade_timeout. Returns True if any stroke was removed."""
+        if self.fade_timeout <= 0:
+            return False
+        now = time.time()
+        initial_count = len(self.strokes)
+        valid_strokes = []
+        for s in self.strokes:
+            t = self.stroke_timestamps.get(s.stroke_id, now)
+            if (now - t) <= self.fade_timeout:
+                valid_strokes.append(s)
+            else:
+                self.stroke_timestamps.pop(s.stroke_id, None)
+
+        if len(valid_strokes) != initial_count:
+            self.strokes = valid_strokes
+            self.render_all_strokes()
+            return True
+        return False
 
     def undo(self) -> bool:
         if not self.strokes and not self.undo_stack:
@@ -141,6 +166,7 @@ class OverlayRenderer:
         self.redo_stack.clear()
         self.strokes.clear()
         self.active_strokes.clear()
+        self.stroke_timestamps.clear()
         self._init_surface()
 
     def set_laser(self, x: float, y: float, active: bool) -> None:
