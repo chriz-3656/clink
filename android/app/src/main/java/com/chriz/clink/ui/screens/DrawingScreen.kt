@@ -38,6 +38,7 @@ fun DrawingScreen(
     var sessionNameInput by remember { mutableStateOf("") }
     var toolToastText by remember { mutableStateOf<String?>(null) }
     var toolToastVisible by remember { mutableStateOf(false) }
+    var timerSec by remember { mutableStateOf(viewModel.preferences.annotationTimerSeconds) }
 
     LaunchedEffect(tool) {
         val toolName = when (tool) {
@@ -53,8 +54,13 @@ fun DrawingScreen(
         }
         toolToastText = toolName
         toolToastVisible = true
-        delay(1600)
-        toolToastVisible = false
+    }
+
+    LaunchedEffect(toolToastText, toolToastVisible) {
+        if (toolToastVisible) {
+            delay(1600)
+            toolToastVisible = false
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -95,7 +101,42 @@ fun DrawingScreen(
                 onModeSelected = { viewModel.setMode(it) }
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Quick Duration Timer Cycle Button
+                FilledTonalButton(
+                    onClick = {
+                        val nextSec = when (timerSec) {
+                            0 -> 3
+                            3 -> 5
+                            5 -> 10
+                            10 -> 30
+                            30 -> 60
+                            else -> 0
+                        }
+                        timerSec = nextSec
+                        viewModel.setAnnotationTimer(nextSec)
+                        toolToastText = if (nextSec == 0) "Duration: Never (Persistent)" else "Duration: ${nextSec}s Auto-Fade"
+                        toolToastVisible = true
+                    },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Timer,
+                        contentDescription = "Annotation Duration",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = if (timerSec == 0) "∞" else "${timerSec}s",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 // Instant Clear All Button
                 FilledTonalIconButton(
                     onClick = { viewModel.clearCanvas() },
@@ -133,16 +174,25 @@ fun DrawingScreen(
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val icon = when (tool) {
-                        DrawingTool.PEN -> Icons.Default.Edit
-                        DrawingTool.PENCIL -> Icons.Default.Create
-                        DrawingTool.HIGHLIGHTER -> Icons.Default.Brush
-                        DrawingTool.ERASER -> Icons.Default.CleaningServices
-                        DrawingTool.LASER -> Icons.Default.Highlight
-                        DrawingTool.LINE -> Icons.Default.HorizontalRule
-                        DrawingTool.ARROW -> Icons.AutoMirrored.Filled.ArrowRightAlt
-                        DrawingTool.RECTANGLE -> Icons.Default.CropSquare
-                        DrawingTool.CIRCLE -> Icons.Default.RadioButtonUnchecked
+                    val icon = if (toolToastText?.startsWith("Duration") == true) {
+                        Icons.Default.Timer
+                    } else {
+                        when (tool) {
+                            DrawingTool.PEN -> Icons.Default.Edit
+                            DrawingTool.PENCIL -> Icons.Default.Create
+                            DrawingTool.HIGHLIGHTER -> Icons.Default.Brush
+                            DrawingTool.ERASER -> Icons.Default.CleaningServices
+                            DrawingTool.LASER -> Icons.Default.Highlight
+                            DrawingTool.LINE -> Icons.Default.HorizontalRule
+                            DrawingTool.ARROW -> Icons.AutoMirrored.Filled.ArrowRightAlt
+                            DrawingTool.RECTANGLE -> Icons.Default.CropSquare
+                            DrawingTool.CIRCLE -> Icons.Default.RadioButtonUnchecked
+                        }
+                    }
+                    val displayText = if (toolToastText?.startsWith("Duration") == true) {
+                        toolToastText ?: ""
+                    } else {
+                        "$toolToastText Active"
                     }
                     Icon(
                         icon,
@@ -152,7 +202,7 @@ fun DrawingScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "$toolToastText Active",
+                        text = displayText,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer

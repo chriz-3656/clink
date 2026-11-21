@@ -18,13 +18,22 @@ try:
     _libx11 = ctypes.CDLL(x11_name)
     _libx11.XOpenDisplay.argtypes = [ctypes.c_char_p]
     _libx11.XOpenDisplay.restype = ctypes.c_void_p
+    _libx11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    _libx11.XCloseDisplay.restype = ctypes.c_int
     _libx11.XFlush.argtypes = [ctypes.c_void_p]
+    _libx11.XFlush.restype = ctypes.c_int
+    _libx11.XRaiseWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    _libx11.XRaiseWindow.restype = ctypes.c_int
 except Exception as e:
     logger.debug("libX11 not loaded: %s", e)
 
 try:
     xfixes_name = ctypes.util.find_library("Xfixes") or "libXfixes.so.3"
     _libxfixes = ctypes.CDLL(xfixes_name)
+    _libxfixes.XFixesCreateRegion.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
+    _libxfixes.XFixesCreateRegion.restype = ctypes.c_ulong
+    _libxfixes.XFixesDestroyRegion.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    _libxfixes.XFixesDestroyRegion.restype = None
     _libxfixes.XFixesSetWindowShapeRegion.argtypes = [
         ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_ulong
     ]
@@ -56,10 +65,14 @@ def set_x11_click_through(xid: int, enable: bool, width: int = 1920, height: int
         if not dpy:
             return False
         if enable:
-            if _libxfixes and hasattr(_libxfixes, "XFixesSetWindowShapeRegion"):
-                # ShapeInput = 2, region 0 = empty (clicks pass through completely)
-                _libxfixes.XFixesSetWindowShapeRegion(dpy, xid, 2, 0, 0, 0)
+            if _libxfixes and hasattr(_libxfixes, "XFixesCreateRegion") and hasattr(_libxfixes, "XFixesSetWindowShapeRegion"):
+                empty_reg = _libxfixes.XFixesCreateRegion(dpy, None, 0)
+                # ShapeInput = 2
+                _libxfixes.XFixesSetWindowShapeRegion(dpy, xid, 2, 0, 0, empty_reg)
+                if hasattr(_libxfixes, "XFixesDestroyRegion"):
+                    _libxfixes.XFixesDestroyRegion(dpy, empty_reg)
             if _libxext and hasattr(_libxext, "XShapeCombineRectangles"):
+                # ShapeInput = 2, ShapeSet = 0, n_rects = 0 (empty input shape)
                 _libxext.XShapeCombineRectangles(dpy, xid, 2, 0, 0, None, 0, 0, 0)
         else:
             if _libxext and hasattr(_libxext, "XShapeCombineRectangles"):
@@ -82,7 +95,7 @@ try:
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
     from gi.repository import Gtk, Gdk, GLib
-    HAS_GTK = True
+    HAS_GTK = bool(Gtk.init_check()[0])
 except Exception as e:
     HAS_GTK = False
 
@@ -91,7 +104,9 @@ from clink.overlay.renderer import OverlayRenderer
 if HAS_GTK:
     class OverlayWindow(Gtk.Window):
         def __init__(self, renderer: Optional[OverlayRenderer] = None, click_through: bool = True):
-            super().__init__(type=Gtk.WindowType.TOPLEVEL)
+            # Use POPUP to make it an override-redirect window that stays on top and is never
+            # minimized or hidden by the window manager when the main control center is minimized.
+            super().__init__(type=Gtk.WindowType.POPUP)
             self.click_through_enabled = click_through
             
             # Screen geometry
@@ -115,23 +130,20 @@ if HAS_GTK:
             self.set_focus_on_map(False)
             self.set_skip_taskbar_hint(True)
             self.set_skip_pager_hint(True)
-            self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
             self.set_app_paintable(True)
             self.set_default_size(self.screen_w, self.screen_h)
             self.move(0, 0)
 
-            # Drawing area widget
-            self.drawing_area = Gtk.DrawingArea()
-            self.drawing_area.connect("draw", self.on_draw)
-            self.add(self.drawing_area)
+            # Connect draw directly to self - no child sub-windows that intercept pointer clicks
+            self.connect("draw", self.on_draw)
 
             # Signals
             self.connect("realize", self.on_realize)
             self.connect("map", self.on_map)
             self.connect("size-allocate", self.on_size_allocate)
 
-            # Periodic check for expiring annotation strokes
-            GLib.timeout_add(500, self._check_stroke_expiry)
+            # Periodic check for expiring annotation strokes (every 250ms)
+            GLib.timeout_add(250, self._check_stroke_expiry)
 
         def _check_stroke_expiry(self) -> bool:
             if self.renderer.purge_expired_strokes():
@@ -147,6 +159,7 @@ if HAS_GTK:
         def on_size_allocate(self, widget: Gtk.Widget, allocation: Gdk.Rectangle) -> None:
             if allocation.width != self.renderer.width or allocation.height != self.renderer.height:
                 self.renderer.resize(allocation.width, allocation.height)
+            self.apply_click_through(self.click_through_enabled)
 
         def apply_click_through(self, enable: bool) -> None:
             self.click_through_enabled = enable
@@ -158,7 +171,7 @@ if HAS_GTK:
             if hasattr(gdk_win, "set_pass_through"):
                 gdk_win.set_pass_through(enable)
 
-            # Primary: Native X11 XFixes / XShape input region combining
+            # Primary: Native X11 XFixes / XShape empty input region combining
             try:
                 xid = gdk_win.get_xid()
                 if xid:
@@ -179,7 +192,7 @@ if HAS_GTK:
 
         def request_redraw(self) -> None:
             """Thread-safe request to redraw the window."""
-            GLib.idle_add(self.drawing_area.queue_draw)
+            GLib.idle_add(self.queue_draw)
 else:
     class OverlayWindow:  # type: ignore
         """Headless fallback when GTK3 introspection is unavailable."""
@@ -198,4 +211,3 @@ else:
 
         def hide(self) -> None:
             pass
-

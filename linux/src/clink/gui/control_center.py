@@ -16,7 +16,7 @@ try:
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
     from gi.repository import Gtk, Gdk, GLib
-    HAS_GTK = True
+    HAS_GTK = bool(Gtk.init_check()[0])
 except Exception:
     HAS_GTK = False
     Gtk = object  # type: ignore
@@ -319,7 +319,7 @@ class ControlCenterWindow(Gtk.Window):
                         f"<span foreground='#00E676'><b>USB Active:</b> {devs[0]['model']} (Port {self.config.port} forwarded)</span>"
                     )
 
-        self.status_label.set_markup("Service Status: <span foreground='#00E676' weight='bold'>Active & Listening</span>")
+        self.status_label.set_markup("Service Status: <span foreground='#00E676' weight='bold'>Active &amp; Listening</span>")
         PID_FILE.parent.mkdir(parents=True, exist_ok=True)
         PID_FILE.write_text(str(os.getpid()))
 
@@ -384,6 +384,7 @@ class ControlCenterWindow(Gtk.Window):
     def on_overlay_visibility_toggled(self, switch: Gtk.Switch, param) -> None:
         if switch.get_active():
             self.overlay_window.show_all()
+            self.overlay_window.apply_click_through(self.clickthrough_switch.get_active())
         else:
             self.overlay_window.hide()
 
@@ -426,6 +427,8 @@ class ControlCenterWindow(Gtk.Window):
 
     def on_close(self, *args) -> None:
         self.stop_server()
+        if hasattr(self.overlay_window, "destroy"):
+            self.overlay_window.destroy()
         Gtk.main_quit()
 
 def launch_control_center() -> None:

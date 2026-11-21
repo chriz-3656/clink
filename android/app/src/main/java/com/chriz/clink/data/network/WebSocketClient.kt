@@ -31,6 +31,7 @@ class WebSocketClient(
 
     var onTokenReceived: (String) -> Unit = {}
     var onPairingFailed: (String) -> Unit = {}
+    var onAuthenticated: () -> Unit = {}
 
     private val okHttpClient = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -142,6 +143,7 @@ class WebSocketClient(
                     if (ack.authenticated) {
                         _status.value = ConnectionStatus.AUTHENTICATED
                         pendingPin = null
+                        onAuthenticated()
                     } else if (ack.pairing_required) {
                         if (pendingPin != null) {
                             val pinToSend = pendingPin!!
@@ -170,6 +172,7 @@ class WebSocketClient(
                         onTokenReceived(ack.token)
                         _status.value = ConnectionStatus.AUTHENTICATED
                         sendAuth(ack.token)
+                        onAuthenticated()
                     } else {
                         onPairingFailed(ack.message ?: "Invalid PIN")
                         _status.value = ConnectionStatus.PAIRING_REQUIRED
@@ -179,6 +182,7 @@ class WebSocketClient(
                     val ack = ClinkJson.decodeFromString<AuthAckMsg>(text)
                     if (ack.success) {
                         _status.value = ConnectionStatus.AUTHENTICATED
+                        onAuthenticated()
                     } else {
                         _status.value = ConnectionStatus.PAIRING_REQUIRED
                     }

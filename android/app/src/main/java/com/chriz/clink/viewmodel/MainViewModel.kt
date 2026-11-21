@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.chriz.clink.data.model.*
 import com.chriz.clink.data.network.ConnectionStatus
 import com.chriz.clink.data.network.NetworkUtils
@@ -12,9 +13,11 @@ import com.chriz.clink.data.network.WebSocketClient
 import com.chriz.clink.data.preferences.ClinkPreferences
 import com.chriz.clink.data.repository.SavedSession
 import com.chriz.clink.data.repository.SessionRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.*
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -59,6 +62,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         client.onPairingFailed = { errorMsg ->
             _pairingError.value = errorMsg
+        }
+        client.onAuthenticated = {
+            val timerSec = preferences.annotationTimerSeconds
+            client.sendTimer(timerSec)
         }
         refreshSessions()
     }
@@ -216,6 +223,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _activeStroke.value = null
 
             client.sendStrokeEnd(stroke.id, normX, normY, pressure)
+
+            val timerSec = preferences.annotationTimerSeconds
+            if (timerSec > 0) {
+                viewModelScope.launch {
+                    delay(timerSec * 1000L)
+                    _strokes.value = _strokes.value.filter { it.id != stroke.id }
+                }
+            }
         }
     }
 
