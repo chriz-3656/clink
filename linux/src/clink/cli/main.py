@@ -8,9 +8,8 @@ import sys
 import threading
 import time
 from pathlib import Path
-import urllib.request
-import json
 import socket
+from typing import Optional
 
 from clink import __version__
 from clink.config.settings import ClinkConfig, DEFAULT_CONFIG_PATH
@@ -22,7 +21,7 @@ from clink.protocol.messages import PROTOCOL_VERSION
 
 PID_FILE = Path.home() / ".config" / "clink" / "clink.pid"
 
-def run_server_daemon(config: ClinkConfig) -> None:
+def run_server_daemon(config: ClinkConfig, pairing_mgr: Optional[PairingManager] = None) -> None:
     """Run GTK overlay and Asyncio WebSocket server in synchronized threads."""
     import gi
     gi.require_version("Gtk", "3.0")
@@ -37,7 +36,8 @@ def run_server_daemon(config: ClinkConfig) -> None:
     )
     scr_w, scr_h = input_backend.get_screen_size()
     renderer = OverlayRenderer(scr_w, scr_h)
-    pairing_mgr = PairingManager()
+    if pairing_mgr is None:
+        pairing_mgr = PairingManager()
 
     # Create GTK overlay window
     window = OverlayWindow(renderer=renderer, click_through=config.click_through)
@@ -80,6 +80,11 @@ def run_server_daemon(config: ClinkConfig) -> None:
     print(f"Clink {__version__} running on ws://{config.host}:{config.port} (Overlay Active)")
     Gtk.main()
 
+def cmd_gui(args: argparse.Namespace) -> None:
+    """Launch the user-friendly Desktop GUI Control Center."""
+    from clink.gui.control_center import launch_control_center
+    launch_control_center()
+
 def cmd_start(args: argparse.Namespace) -> None:
     if PID_FILE.exists():
         try:
@@ -106,14 +111,14 @@ def cmd_start(args: argparse.Namespace) -> None:
 
     # Generate and display pairing PIN
     pairing = PairingManager()
-    pin = pairing.generate_pin()
+    pin = pairing.get_current_pin()
     print(f"==========================================")
     print(f"  Clink Desktop Companion v{__version__}")
     print(f"  Listening on: ws://{config.host}:{config.port}")
     print(f"  Pairing PIN:  {pin}")
     print(f"==========================================")
 
-    run_server_daemon(config)
+    run_server_daemon(config, pairing_mgr=pairing)
 
 def cmd_stop(args: argparse.Namespace) -> None:
     if not PID_FILE.exists():
@@ -147,6 +152,9 @@ def cmd_status(args: argparse.Namespace) -> None:
     config = ClinkConfig.load()
     print(f"  Listening Port:  {config.port}")
     print(f"  Auth Required:   {config.require_auth}")
+
+    pairing = PairingManager()
+    print(f"  Active PIN:      {pairing.get_current_pin()}")
 
     adb = AdbManager(config.port)
     if adb.is_adb_available():
@@ -190,9 +198,7 @@ def cmd_devices(args: argparse.Namespace) -> None:
         print(f"  - {info.get('device_name', 'Device')} (ID: {dev_id})")
 
 def cmd_clear(args: argparse.Namespace) -> None:
-    """Send clear request to running server."""
     print("Clearing annotation canvas...")
-    # In live session this sends clear signal over local websocket or IPC
     print("Canvas cleared.")
 
 def cmd_config(args: argparse.Namespace) -> None:
@@ -222,14 +228,12 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     print(f"================ Clink Diagnostic Doctor ================")
     print(f"Python: {sys.version.split()[0]} ({sys.executable})")
     
-    # Desktop & Display
     display = os.environ.get("DISPLAY", "None")
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", os.environ.get("DESKTOP_SESSION", "Unknown"))
     session_type = os.environ.get("XDG_SESSION_TYPE", "x11")
     print(f"Desktop Session: {desktop} ({session_type})")
     print(f"DISPLAY variable: {display}")
 
-    # GTK3 / PyGObject
     try:
         import gi
         gi.require_version("Gtk", "3.0")
@@ -238,14 +242,12 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     except Exception as e:
         print(f"GTK 3 (PyGObject): Missing ({e}) [FAIL]")
 
-    # Cairo
     try:
         import cairo
         print(f"PyCairo: {cairo.version} [OK]")
     except Exception as e:
         print(f"PyCairo: Missing ({e}) [FAIL]")
 
-    # Xlib and XTEST
     try:
         from Xlib import display as x_display
         from Xlib.ext import xtest
@@ -256,14 +258,12 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     except Exception as e:
         print(f"X11 / Xlib: Not accessible ({e}) [WARN/HEADLESS]")
 
-    # ADB
     adb = AdbManager()
     if adb.is_adb_available():
         print(f"ADB Executable: {adb.adb_bin} [OK]")
     else:
         print("ADB Executable: Not found in PATH [WARN]")
 
-    # Port Check
     cfg = ClinkConfig.load()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -282,8 +282,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="clink", description="Clink Linux companion and annotation engine")
     subparsers = parser.add_subparsers(dest="command")
 
+    # gui
+    p_gui = subparsers.add_parser("gui", help="Launch Clink Desktop GUI Control Center")
+    p_gui.set_defaults(func=cmd_gui)
+
     # start
-    p_start = subparsers.add_parser("start", help="Start Clink desktop companion and overlay")
+    p_start = subparsers.add_parser("start", help="Start Clink desktop companion in background/terminal")
     p_start.add_argument("--port", type=int, help="Port to listen on (default 8765)")
     p_start.add_argument("--no-auth", action="store_true", help="Disable client authentication")
     p_start.set_defaults(func=cmd_start)
@@ -320,6 +324,11 @@ def main() -> None:
     # version
     p_version = subparsers.add_parser("version", help="Show version information")
     p_version.set_defaults(func=cmd_version)
+
+    # Default to GUI when run without arguments (e.g. from app menu)
+    if len(sys.argv) == 1:
+        cmd_gui(argparse.Namespace())
+        return
 
     args = parser.parse_args()
     if hasattr(args, "func"):

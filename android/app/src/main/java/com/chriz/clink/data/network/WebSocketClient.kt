@@ -29,6 +29,9 @@ class WebSocketClient(
         private const val TAG = "ClinkWebSocket"
     }
 
+    var onTokenReceived: (String) -> Unit = {}
+    var onPairingFailed: (String) -> Unit = {}
+
     private val okHttpClient = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(5, TimeUnit.SECONDS)
@@ -50,12 +53,14 @@ class WebSocketClient(
     private var currentHost = "127.0.0.1"
     private var currentPort = 8765
     private var authToken = ""
+    private var currentDeviceId = "android_device"
     private var pingStartTime = 0L
 
-    fun connect(host: String, port: Int, token: String = "") {
+    fun connect(host: String, port: Int, token: String = "", deviceId: String = "android_device") {
         currentHost = host
         currentPort = port
         authToken = token
+        currentDeviceId = deviceId
 
         disconnect()
         _status.value = ConnectionStatus.CONNECTING
@@ -112,12 +117,11 @@ class WebSocketClient(
                 "hello_ack" -> {
                     val ack = ClinkJson.decodeFromString<HelloAckMsg>(text)
                     _displayInfo.value = ack.display
-                    if (ack.pairing_required) {
-                        _status.value = ConnectionStatus.PAIRING_REQUIRED
-                    } else if (ack.authenticated) {
+                    if (ack.authenticated) {
                         _status.value = ConnectionStatus.AUTHENTICATED
+                    } else if (ack.pairing_required) {
+                        _status.value = ConnectionStatus.PAIRING_REQUIRED
                     } else {
-                        // Attempt auth with saved token
                         if (authToken.isNotBlank()) {
                             sendAuth(authToken)
                         } else {
@@ -129,7 +133,12 @@ class WebSocketClient(
                     val ack = ClinkJson.decodeFromString<PairAckMsg>(text)
                     if (ack.success && ack.token != null) {
                         authToken = ack.token
+                        onTokenReceived(ack.token)
+                        _status.value = ConnectionStatus.AUTHENTICATED
                         sendAuth(ack.token)
+                    } else {
+                        onPairingFailed(ack.message ?: "Invalid PIN")
+                        _status.value = ConnectionStatus.PAIRING_REQUIRED
                     }
                 }
                 "auth_ack" -> {
@@ -154,18 +163,22 @@ class WebSocketClient(
     }
 
     private fun sendHello() {
+        val model = android.os.Build.MODEL ?: "Device"
+        val manufacturer = android.os.Build.MANUFACTURER ?: "Android"
         val msg = HelloMsg(
-            device_id = android.os.Build.SERIAL ?: "android_device",
-            device_name = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+            device_id = currentDeviceId,
+            device_name = "$manufacturer $model".trim(),
             token = authToken.ifBlank { null }
         )
         sendMessage(ClinkJson.encodeToString(msg))
     }
 
     fun sendPairRequest(pin: String) {
+        val model = android.os.Build.MODEL ?: "Device"
+        val manufacturer = android.os.Build.MANUFACTURER ?: "Android"
         val msg = PairRequestMsg(
-            device_id = android.os.Build.SERIAL ?: "android_device",
-            device_name = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+            device_id = currentDeviceId,
+            device_name = "$manufacturer $model".trim(),
             pin = pin
         )
         sendMessage(ClinkJson.encodeToString(msg))

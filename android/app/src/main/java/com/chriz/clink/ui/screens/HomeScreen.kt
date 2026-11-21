@@ -32,6 +32,7 @@ fun HomeScreen(
     val status by viewModel.client.status.collectAsState()
     val latency by viewModel.client.latencyMs.collectAsState()
     val displayInfo by viewModel.client.displayInfo.collectAsState()
+    val pairingError by viewModel.pairingError.collectAsState()
 
     var isWifiMode by remember { mutableStateOf(false) }
     var wifiHost by remember { mutableStateOf(viewModel.preferences.host) }
@@ -112,7 +113,7 @@ fun HomeScreen(
                         Text("Connection Status", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         val (statusText, statusColor) = when (status) {
                             ConnectionStatus.AUTHENTICATED -> "Ready & Active" to Color(0xFF00E676)
-                            ConnectionStatus.CONNECTED -> "Handshake" to Color(0xFFFFEA00)
+                            ConnectionStatus.CONNECTED -> "Connecting..." to Color(0xFFFFEA00)
                             ConnectionStatus.CONNECTING -> "Connecting..." to Color(0xFF00E5FF)
                             ConnectionStatus.PAIRING_REQUIRED -> "Pairing Needed" to Color(0xFFFF9100)
                             ConnectionStatus.ERROR -> "Connection Failed" to Color(0xFFFF3366)
@@ -191,7 +192,7 @@ fun HomeScreen(
                         Text("USB Quick Connect", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "1. Connect phone with USB Debugging enabled\n2. On Linux, run: clink start (or clink connect)\n3. Tap 'Connect via USB' below.",
+                            "1. Connect phone with USB Debugging enabled\n2. Open Clink Control Center on Linux (or run clink connect)\n3. Tap 'Connect via USB' below.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         )
@@ -273,31 +274,56 @@ fun HomeScreen(
     // Pairing PIN Dialog
     if (showPinDialog) {
         AlertDialog(
-            onDismissRequest = { showPinDialog = false },
-            title = { Text("Enter Companion PIN") },
+            onDismissRequest = {
+                showPinDialog = false
+                viewModel.clearPairingError()
+            },
+            title = { Text("Enter Pairing PIN") },
             text = {
                 Column {
-                    Text("Enter the 6-digit PIN displayed on your Linux terminal:")
+                    Text("Enter the 6-digit PIN shown on your Linux screen (Clink Control Center):")
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = pinInput,
-                        onValueChange = { if (it.length <= 6) pinInput = it },
+                        onValueChange = {
+                            if (it.length <= 6) {
+                                pinInput = it
+                                viewModel.clearPairingError()
+                            }
+                        },
                         placeholder = { Text("e.g. 123456") },
                         singleLine = true,
+                        isError = pairingError != null,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if (pairingError != null) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = pairingError ?: "Invalid PIN. Please try again.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.submitPin(pinInput)
-                    pinInput = ""
-                }) {
+                Button(
+                    onClick = {
+                        if (pinInput.isNotBlank()) {
+                            viewModel.submitPin(pinInput.trim())
+                        }
+                    },
+                    enabled = pinInput.length == 6
+                ) {
                     Text("Pair Device")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPinDialog = false }) {
+                TextButton(onClick = {
+                    showPinDialog = false
+                    viewModel.clearPairingError()
+                    viewModel.disconnect()
+                }) {
                     Text("Cancel")
                 }
             }

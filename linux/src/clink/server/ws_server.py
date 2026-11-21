@@ -71,6 +71,10 @@ class ClinkServer:
                         await websocket.send(serialize_message(response))
                         if response.get("type") == "auth_ack" and response.get("success"):
                             authenticated = True
+                        elif response.get("type") == "pair_ack" and response.get("success"):
+                            authenticated = True
+                        elif response.get("type") == "hello_ack" and response.get("authenticated"):
+                            authenticated = True
                 except Exception as e:
                     logger.error("Error processing message: %s\n%s", e, traceback.format_exc())
                     await websocket.send(serialize_message({

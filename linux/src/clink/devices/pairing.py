@@ -9,11 +9,14 @@ from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-DEVICES_FILE = Path.home() / ".config" / "clink" / "devices.json"
+CONFIG_DIR = Path.home() / ".config" / "clink"
+DEVICES_FILE = CONFIG_DIR / "devices.json"
+PIN_FILE = CONFIG_DIR / "pin.txt"
 
 class PairingManager:
-    def __init__(self, devices_file: Path = DEVICES_FILE):
+    def __init__(self, devices_file: Path = DEVICES_FILE, pin_file: Path = PIN_FILE):
         self.devices_file = devices_file
+        self.pin_file = pin_file
         self.devices: Dict[str, Dict] = {}
         self.active_pin: Optional[str] = None
         self._load()
@@ -29,6 +32,14 @@ class PairingManager:
         else:
             self.devices = {}
 
+        if self.pin_file.exists():
+            try:
+                saved_pin = self.pin_file.read_text(encoding="utf-8").strip()
+                if saved_pin:
+                    self.active_pin = saved_pin
+            except Exception:
+                pass
+
     def _save(self) -> None:
         self.devices_file.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -38,20 +49,38 @@ class PairingManager:
             logger.error("Failed to save paired devices: %s", e)
 
     def generate_pin(self) -> str:
-        """Generate a 6-digit numeric pairing PIN."""
+        """Generate a 6-digit numeric pairing PIN and persist it for clients."""
         self.active_pin = f"{secrets.randbelow(1000000):06d}"
+        self.pin_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            self.pin_file.write_text(self.active_pin, encoding="utf-8")
+        except Exception as e:
+            logger.warning("Could not write PIN file: %s", e)
         logger.info("New pairing PIN generated: %s", self.active_pin)
         return self.active_pin
 
+    def get_current_pin(self) -> str:
+        if not self.active_pin:
+            return self.generate_pin()
+        return self.active_pin
+
     def verify_pin(self, pin: str) -> bool:
-        if self.active_pin and secrets.compare_digest(self.active_pin, pin.strip()):
-            self.active_pin = None
+        candidate = pin.strip()
+        current = self.active_pin
+        if not current and self.pin_file.exists():
+            try:
+                current = self.pin_file.read_text(encoding="utf-8").strip()
+                self.active_pin = current
+            except Exception:
+                pass
+        if current and secrets.compare_digest(current, candidate):
             return True
         return False
 
     def pair_device(self, device_id: str, device_name: str, pin: str) -> Optional[str]:
         """Pair a device if PIN matches, generating and saving a persistent token."""
         if not self.verify_pin(pin):
+            logger.warning("PIN verification failed for device '%s' (provided '%s')", device_name, pin)
             return None
         token = secrets.token_hex(16)
         self.devices[device_id] = {
@@ -72,6 +101,7 @@ class PairingManager:
         return False
 
     def list_devices(self) -> Dict[str, Dict]:
+        self._load()
         return self.devices
 
     def remove_device(self, device_id: str) -> bool:

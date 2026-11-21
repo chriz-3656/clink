@@ -31,9 +31,9 @@ cat << 'DESK' > "$DESKTOP_DIR/clink.desktop"
 [Desktop Entry]
 Name=Clink
 Comment=Android-powered desktop annotation and drawing tablet
-Exec=clink start
+Exec=clink gui
 Icon=clink
-Terminal=true
+Terminal=false
 Type=Application
 Categories=Graphics;Utility;
 Keywords=tablet;stylus;annotation;whiteboard;

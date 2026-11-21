@@ -5,7 +5,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.chriz.clink.data.model.*
 import com.chriz.clink.data.network.ConnectionStatus
 import com.chriz.clink.data.network.WebSocketClient
@@ -15,7 +14,6 @@ import com.chriz.clink.data.repository.SessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import java.util.*
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -50,12 +48,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _sessions = MutableStateFlow<List<SavedSession>>(emptyList())
     val sessions: StateFlow<List<SavedSession>> = _sessions.asStateFlow()
 
+    private val _pairingError = MutableStateFlow<String?>(null)
+    val pairingError: StateFlow<String?> = _pairingError.asStateFlow()
+
     init {
+        client.onTokenReceived = { token ->
+            preferences.authToken = token
+            _pairingError.value = null
+        }
+        client.onPairingFailed = { errorMsg ->
+            _pairingError.value = errorMsg
+        }
         refreshSessions()
     }
 
     fun refreshSessions() {
         _sessions.value = sessionRepo.listSessions()
+    }
+
+    fun clearPairingError() {
+        _pairingError.value = null
     }
 
     fun setTool(tool: DrawingTool) {
@@ -76,21 +88,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun connectUsb() {
-        client.connect("127.0.0.1", preferences.port, preferences.authToken)
+        _pairingError.value = null
+        client.connect("127.0.0.1", preferences.port, preferences.authToken, preferences.deviceId)
     }
 
     fun connectWifi(host: String, port: Int) {
         preferences.host = host
         preferences.port = port
-        client.connect(host, port, preferences.authToken)
+        _pairingError.value = null
+        client.connect(host, port, preferences.authToken, preferences.deviceId)
     }
 
     fun submitPin(pin: String) {
+        _pairingError.value = null
         client.sendPairRequest(pin)
     }
 
     fun disconnect() {
         client.disconnect()
+        _pairingError.value = null
     }
 
     fun startStroke(normX: Float, normY: Float, pressure: Float) {
@@ -129,7 +145,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (stroke != null) {
             stroke.points.addAll(newPoints)
-            // Send to server
             val dtos = newPoints.map { ProtocolPoint(it.x, it.y, it.pressure, it.timestamp) }
             client.sendStrokeMove(stroke.id, dtos)
         }
@@ -145,7 +160,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             stroke.points.add(CanvasPoint(normX, normY, pressure))
             stroke.isCompleted = true
 
-            // Push current state to undo
             undoStack.add(_strokes.value.toList())
             redoStack.clear()
 
@@ -208,7 +222,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (loaded != null) {
             undoStack.add(_strokes.value.toList())
             _strokes.value = loaded
-            // Replay strokes on companion overlay
             for (s in loaded) {
                 val hexColor = String.format("#%06X", (0xFFFFFF and s.toComposeColor().toArgb()))
                 if (s.points.isNotEmpty()) {

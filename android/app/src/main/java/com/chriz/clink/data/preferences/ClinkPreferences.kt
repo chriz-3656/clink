@@ -2,6 +2,7 @@ package com.chriz.clink.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import java.util.UUID
 
 class ClinkPreferences(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("clink_prefs", Context.MODE_PRIVATE)
@@ -17,6 +18,17 @@ class ClinkPreferences(context: Context) {
     var authToken: String
         get() = prefs.getString("auth_token", "") ?: ""
         set(value) = prefs.edit().putString("auth_token", value).apply()
+
+    var deviceId: String
+        get() {
+            var id = prefs.getString("device_id", "") ?: ""
+            if (id.isBlank()) {
+                id = "android_" + UUID.randomUUID().toString().replace("-", "").take(16)
+                prefs.edit().putString("device_id", id).apply()
+            }
+            return id
+        }
+        set(value) = prefs.edit().putString("device_id", value).apply()
 
     var palmRejectionEnabled: Boolean
         get() = prefs.getBoolean("palm_rejection", true)
