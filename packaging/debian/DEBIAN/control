@@ -4,7 +4,8 @@ Section: graphics
 Priority: optional
 Architecture: amd64
 Maintainer: chriz-3656 <chriz-3656@users.noreply.github.com>
-Depends: libc6, libxkbcommon-x11-0, adb
+Depends: libc6, libxkbcommon-x11-0
+Recommends: adb
 Description: Android-powered drawing tablet and desktop annotation system
  Clink turns Android devices into wireless or USB drawing tablets and desktop
  annotation canvases with real-time transparent overlays and input injection.
