@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Clink
 Comment=Android-powered desktop annotation and drawing tablet
-Exec=clink gui
+Exec=clink
 Icon=clink
 Terminal=false
 Type=Application

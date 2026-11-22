@@ -78,22 +78,23 @@ Don't have a Wi-Fi router or USB cable? Turn on **Personal Hotspot** on your And
 
 ## 🚀 Quick Start
 
-### 1. Install Linux Companion
+### 1. Install Desktop Companion (Linux & Windows)
 
 Download the latest release package from the [Releases Page](https://github.com/chriz-3656/clink/releases):
 
+#### 🐧 Linux:
 ```bash
-# Option A: Standalone Native Rust Binary (Zero Python dependencies!)
-chmod +x clink-native-linux-x86_64
-./clink-native-linux-x86_64
+# Option A: Debian / Ubuntu / Linux Mint (.deb package with GUI launcher)
+sudo dpkg -i clink_1.0.7_amd64.deb
 
-# Option B: Debian / Ubuntu / Linux Mint
-sudo dpkg -i clink_1.0.6_all.deb
-sudo apt-get install -f   # resolve any missing runtime libraries
-
-# Launch the GUI Control Center
-clink gui
+# Option B: Standalone Native Linux GUI Executable (No Python required!)
+chmod +x clink-gui-linux-x86_64
+./clink-gui-linux-x86_64
 ```
+
+#### 🪟 Windows:
+- **Installer**: Download and run `clink-setup-v1.0.7-windows-x86_64.exe` (creates Desktop & Start Menu shortcuts).
+- **Portable**: Download and run `clink-windows-x86_64.exe` directly.
 
 ### 2. Install Android App
 
@@ -106,31 +107,21 @@ adb install clink-android-release.apk
 ### 3. Pair & Connect
 
 - **Instant Optical QR Pairing (Wi-Fi / Hotspot)**:  
-  Open Clink on Android, tap the **QR Scanner icon** at the top right, and scan the QR code displayed on your Linux monitor.
+  Open Clink on Android, tap the **QR Scanner icon** at the top right, and scan the QR code displayed on your desktop companion window.
 - **Instant USB (Cabled)**:  
   Connect your phone with a USB cable (with USB debugging enabled), tap **Connect via USB**, and start drawing immediately.
 
 ---
 
-## 🖥️ Linux Control Center & CLI
+## 🖥️ Desktop Companion GUI
 
-Clink includes both a modern GTK3 GUI Control Center and an automated CLI:
-
-<div align="center">
-  <img src="assets/gui_preview.png" alt="Clink Linux Control Center" width="550" />
-</div>
-
-### CLI Commands:
-```bash
-clink start        # Launch headless daemon and transparent overlay
-clink stop         # Terminate companion daemon
-clink status       # View service status, port, and connected devices
-clink connect      # Configure USB port forwarding via adb reverse
-clink devices      # View and manage paired Android devices
-clink doctor       # Run system diagnostics (X11, GTK3, Cairo, ADB, ports)
-clink config       # View or update configuration settings
-clink gui          # Open the graphical Control Center
-```
+Clink includes a high-performance native graphical desktop app matching the Android Cyberpunk theme (`#121218`, `#FF3366`, `#00E5FF`):
+- **Live WebSocket Server Controls**: Real-time status for USB (`127.0.0.1:8765`) and Wi-Fi (`<LAN-IP>:8765`).
+- **Instant Pairing**: High-resolution QR code texture and bold rolling 6-digit security PIN.
+- **One-Click ADB Reverse**: Configure USB forwarding with a single button.
+- **Desktop Annotation Overlay Controls**: Toggle overlay visibility, click-through pass-through, and auto-clear fade durations (Never, 3s, 5s, 10s, 30s, 60s).
+- **Canvas Action Buttons**: Clear all, Undo, and Redo directly from your computer.
+- **Headless Mode**: Run `clink --headless` for lightweight server or automated kiosk setups.
 
 ---
 

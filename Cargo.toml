@@ -3,3 +3,10 @@ members = [
     "desktop",
 ]
 resolver = "2"
+
+[profile.dev]
+debug = 1
+
+[profile.release]
+debug = false
+strip = true

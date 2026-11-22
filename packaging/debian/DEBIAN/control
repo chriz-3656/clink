@@ -2,9 +2,10 @@ Package: clink
 Version: 1.0.7
 Section: graphics
 Priority: optional
-Architecture: all
+Architecture: amd64
 Maintainer: chriz-3656 <chriz-3656@users.noreply.github.com>
-Depends: python3 (>= 3.10), python3-websockets, python3-cairo, python3-gi, gir1.2-gtk-3.0, python3-xlib, python3-qrcode, python3-pil, adb
-Description: Android-powered drawing tablet and desktop annotation system for Linux
+Depends: libc6, libxkbcommon-x11-0, adb
+Description: Android-powered drawing tablet and desktop annotation system
  Clink turns Android devices into wireless or USB drawing tablets and desktop
  annotation canvases with real-time transparent overlays and input injection.
+ Includes high-performance native compiled GUI companion.

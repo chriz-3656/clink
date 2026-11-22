@@ -47,8 +47,25 @@ impl OverlayRenderer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_pixmap(&self) -> &Pixmap {
         &self.pixmap
+    }
+
+    pub fn stroke_count(&self) -> usize {
+        self.strokes.len()
+    }
+
+    pub fn can_undo(&self) -> bool {
+        !self.strokes.is_empty() || !self.undo_stack.is_empty()
+    }
+
+    pub fn can_redo(&self) -> bool {
+        !self.redo_stack.is_empty()
+    }
+
+    pub fn set_fade_duration(&mut self, secs: u64) {
+        self.fade_timeout = secs as f32;
     }
 
     #[allow(dead_code)]
