@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.6] - 2026-11-21
+## [1.0.7] - 2026-11-22
 
 ### Added
 - **Native Rust Companion (`desktop/`)**: Built a native, single-binary Rust companion (`clink`) powered by `tokio`, `tokio-tungstenite`, `x11rb`, `tiny-skia`, and `qrcode`. Delivers deterministic sub-millisecond latency, instant startup (<50ms), and only ~8MB memory footprint with zero Python or C-library dependencies.
@@ -15,7 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Android**: Added Undo and Redo quick actions to both the top action bar and floating bottom toolbar, backed by reactive `canUndo` and `canRedo` StateFlows and animated pill toast confirmations.
   - **Protocol & Desktop Overlay**: Added `undo` (`undo_ack`) and `redo` (`redo_ack`) WebSocket messages, maintaining a full stroke history stack on both Rust and Python companions with immediate Cairo/tiny-skia redraws.
 - **Rendered GTK Icons & User Theme Priority**: Replaced raw unicode emojis in the Linux Control Center with native freedesktop vector icons (`Gtk.Image.new_from_icon_name`), added action icons to all primary/secondary buttons, and elevated CSS priority to `GTK_STYLE_PROVIDER_PRIORITY_USER` (800) so the cyberpunk dark theme consistently renders across all Linux desktop environments.
+
+### Fixed
+- **Play Store Content Clean-Up**: Removed all non-FOSS Play Store assets, focusing the repository on pure open-source distributions (F-Droid and Flathub).
+
+---
+
+## [1.0.6] - 2026-11-21
+
+### Added
 - **Matching Dark/Cyberpunk Theme on Linux**: Implemented custom GTK3 CSS provider theming matching the Android app aesthetic (`#121218` dark background, `#191926` rounded card containers, Clink Pink `#FF3366` primary buttons, dark glass secondary buttons, and active status pill badges).
+- **Custom Section Icons & Modern Cards**: Replaced standard GTK frames with modern card containers featuring custom icons (`⚡ COMPANION SERVICE`, `📱 INSTANT PAIRING`, `🔌 USB CONNECTION`, `🎨 DESKTOP OVERLAY`, `📲 PAIRED DEVICES`, `ℹ️ DEVELOPER & PROJECT`).
 
 ### Fixed
 - **Synchronized Artifact Version Naming**: Updated all package metadata and artifacts from outdated `1.0.0` references to dynamic semantic versioning (`clink_1.0.6_all.deb`, `clink-linux-1.0.6-x86_64.tar.gz`, `clink-1.0.6-py3-none-any.whl`, Android `versionCode 6` / `versionName 1.0.6`).

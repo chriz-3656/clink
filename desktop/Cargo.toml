@@ -1,6 +1,6 @@
 [package]
 name = "clink-desktop"
-version = "1.0.6"
+version = "1.0.7"
 edition = "2021"
 authors = ["chriz-3656 <chrizmonsaji@proton.me>"]
 description = "High-performance native companion for Clink: Android-powered drawing tablet and screen annotation overlay"
