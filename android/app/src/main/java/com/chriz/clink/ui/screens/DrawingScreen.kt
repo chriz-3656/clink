@@ -6,6 +6,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowRightAlt
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +35,8 @@ fun DrawingScreen(
     val strokes by viewModel.strokes.collectAsState()
     val activeStroke by viewModel.activeStroke.collectAsState()
     val laserPos by viewModel.laserPos.collectAsState()
+    val canUndo by viewModel.canUndo.collectAsState()
+    val canRedo by viewModel.canRedo.collectAsState()
 
     var showSaveDialog by remember { mutableStateOf(false) }
     var sessionNameInput by remember { mutableStateOf("") }
@@ -137,6 +141,29 @@ fun DrawingScreen(
                     )
                 }
 
+                // Quick Undo & Redo in Top Bar
+                FilledTonalIconButton(
+                    onClick = {
+                        viewModel.undo()
+                        toolToastText = "Undo"
+                        toolToastVisible = true
+                    },
+                    enabled = canUndo
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+                }
+
+                FilledTonalIconButton(
+                    onClick = {
+                        viewModel.redo()
+                        toolToastText = "Redo"
+                        toolToastVisible = true
+                    },
+                    enabled = canRedo
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
+                }
+
                 // Instant Clear All Button
                 FilledTonalIconButton(
                     onClick = { viewModel.clearCanvas() },
@@ -176,6 +203,10 @@ fun DrawingScreen(
                 ) {
                     val icon = if (toolToastText?.startsWith("Duration") == true) {
                         Icons.Default.Timer
+                    } else if (toolToastText == "Undo") {
+                        Icons.AutoMirrored.Filled.Undo
+                    } else if (toolToastText == "Redo") {
+                        Icons.AutoMirrored.Filled.Redo
                     } else {
                         when (tool) {
                             DrawingTool.PEN -> Icons.Default.Edit
@@ -189,7 +220,7 @@ fun DrawingScreen(
                             DrawingTool.CIRCLE -> Icons.Default.RadioButtonUnchecked
                         }
                     }
-                    val displayText = if (toolToastText?.startsWith("Duration") == true) {
+                    val displayText = if (toolToastText?.startsWith("Duration") == true || toolToastText == "Undo" || toolToastText == "Redo") {
                         toolToastText ?: ""
                     } else {
                         "$toolToastText Active"
@@ -216,8 +247,8 @@ fun DrawingScreen(
             currentTool = tool,
             currentColor = color,
             currentWidth = width,
-            canUndo = strokes.isNotEmpty(),
-            canRedo = true,
+            canUndo = canUndo,
+            canRedo = canRedo,
             onToolSelected = { viewModel.setTool(it) },
             onColorSelected = { viewModel.setColor(it) },
             onWidthChanged = { viewModel.setWidth(it) },

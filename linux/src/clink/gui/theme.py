@@ -232,7 +232,7 @@ def apply_clink_theme() -> bool:
         provider = Gtk.CssProvider()
         provider.load_from_data(CLINK_GTK_CSS.encode("utf-8"))
         Gtk.StyleContext.add_provider_for_screen(
-            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
         )
         return True
     except Exception as e:

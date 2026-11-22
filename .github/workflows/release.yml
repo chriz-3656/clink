@@ -44,6 +44,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           gh release upload "${GITHUB_REF_NAME}" \
+            dist/clink-native-linux-x86_64 \
             dist/clink-android-debug.apk \
             dist/clink-android-release.apk \
             "dist/clink_${VERSION}_all.deb" \
@@ -53,6 +54,7 @@ jobs:
             dist/SHA256SUMS.txt \
             --clobber || \
           gh release create "${GITHUB_REF_NAME}" \
+            dist/clink-native-linux-x86_64 \
             dist/clink-android-debug.apk \
             dist/clink-android-release.apk \
             "dist/clink_${VERSION}_all.deb" \

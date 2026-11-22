@@ -48,5 +48,9 @@ htmlcov/
 
 # Logs & temp
 *.log
+.cache/
+
+# Rust target
+target/
 *.tmp
 .DS_Store

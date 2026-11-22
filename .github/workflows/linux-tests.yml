@@ -21,6 +21,10 @@ jobs:
             python3-websockets python3-xlib python3-pytest python3-pytest-asyncio \
             python3-qrcode python3-pil python3-build adb
 
+      - name: Run Rust automated test suite
+        run: |
+          cargo test --all
+
       - name: Run automated test suite
         run: |
           PYTHONPATH=linux/src:linux/tests python3 -m pytest -v linux/tests

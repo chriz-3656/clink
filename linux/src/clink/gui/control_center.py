@@ -50,14 +50,18 @@ def get_lan_ip() -> str:
         s.close()
     return ip
 
-def _create_card(title: str, icon_str: str) -> tuple[Gtk.Box, Gtk.Box]:
-    """Helper to create a modern rounded cyberpunk card matching the Android app."""
+def _create_card(title: str, icon_name: str = "") -> tuple[Gtk.Box, Gtk.Box]:
+    """Helper to create a modern rounded cyberpunk card with real rendered GTK icons."""
     card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     card.get_style_context().add_class("clink-card")
 
     header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    if icon_name and HAS_GTK:
+        img = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+        header_box.pack_start(img, False, False, 0)
+
     lbl = Gtk.Label()
-    lbl.set_markup(f"<span weight='800' foreground='#00E5FF'>{icon_str}  {title}</span>")
+    lbl.set_markup(f"<span weight='800' foreground='#00E5FF'>{title}</span>")
     lbl.set_xalign(0)
     lbl.get_style_context().add_class("clink-card-header")
     header_box.pack_start(lbl, True, True, 0)
@@ -129,7 +133,7 @@ class ControlCenterWindow(Gtk.Window):
         scroller.add(main_box)
 
         # 1. Status & Service Toggle Card
-        status_card, status_box = _create_card("COMPANION SERVICE", "⚡")
+        status_card, status_box = _create_card("COMPANION SERVICE", "system-run")
         main_box.pack_start(status_card, False, False, 0)
 
         status_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -154,7 +158,7 @@ class ControlCenterWindow(Gtk.Window):
         status_box.pack_start(self.address_label, False, False, 0)
 
         # 2. Pairing PIN & QR Code Card
-        pin_card, pin_box = _create_card("INSTANT PAIRING (PIN & QR CODE)", "📱")
+        pin_card, pin_box = _create_card("INSTANT PAIRING (PIN & QR CODE)", "network-wireless")
         main_box.pack_start(pin_card, False, False, 0)
 
         pairing_content_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
@@ -171,11 +175,15 @@ class ControlCenterWindow(Gtk.Window):
 
         pin_btn_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         regen_btn = Gtk.Button(label="New PIN")
+        regen_btn.set_image(Gtk.Image.new_from_icon_name("view-refresh", Gtk.IconSize.BUTTON))
+        regen_btn.set_always_show_image(True)
         regen_btn.get_style_context().add_class("clink-btn-primary")
         regen_btn.connect("clicked", self.on_regenerate_pin)
         pin_btn_row.pack_start(regen_btn, True, True, 0)
 
         refresh_ip_btn = Gtk.Button(label="Refresh IP")
+        refresh_ip_btn.set_image(Gtk.Image.new_from_icon_name("network-wireless", Gtk.IconSize.BUTTON))
+        refresh_ip_btn.set_always_show_image(True)
         refresh_ip_btn.get_style_context().add_class("clink-btn-secondary")
         refresh_ip_btn.connect("clicked", lambda b: self.refresh_network_ip(force=True))
         pin_btn_row.pack_end(refresh_ip_btn, False, False, 0)
@@ -201,7 +209,7 @@ class ControlCenterWindow(Gtk.Window):
         pin_box.pack_start(pairing_content_row, False, False, 0)
 
         # 3. Quick USB Setup Card
-        usb_card, usb_box = _create_card("USB CONNECTION (ADB REVERSE)", "🔌")
+        usb_card, usb_box = _create_card("USB CONNECTION (ADB REVERSE)", "network-wired")
         main_box.pack_start(usb_card, False, False, 0)
 
         self.usb_status_label = Gtk.Label(label="Checking for connected USB devices...")
@@ -210,18 +218,22 @@ class ControlCenterWindow(Gtk.Window):
 
         usb_btn_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.adb_reverse_btn = Gtk.Button(label="Configure USB (adb reverse)")
+        self.adb_reverse_btn.set_image(Gtk.Image.new_from_icon_name("network-wired", Gtk.IconSize.BUTTON))
+        self.adb_reverse_btn.set_always_show_image(True)
         self.adb_reverse_btn.get_style_context().add_class("clink-btn-primary")
         self.adb_reverse_btn.connect("clicked", self.on_configure_adb_reverse)
         usb_btn_row.pack_start(self.adb_reverse_btn, True, True, 0)
 
         refresh_adb_btn = Gtk.Button(label="Refresh USB")
+        refresh_adb_btn.set_image(Gtk.Image.new_from_icon_name("view-refresh", Gtk.IconSize.BUTTON))
+        refresh_adb_btn.set_always_show_image(True)
         refresh_adb_btn.get_style_context().add_class("clink-btn-secondary")
         refresh_adb_btn.connect("clicked", self.on_refresh_usb)
         usb_btn_row.pack_end(refresh_adb_btn, False, False, 0)
         usb_box.pack_start(usb_btn_row, False, False, 0)
 
         # 4. Desktop Overlay Controls Card
-        overlay_card, overlay_box = _create_card("DESKTOP ANNOTATION OVERLAY", "🎨")
+        overlay_card, overlay_box = _create_card("DESKTOP ANNOTATION OVERLAY", "applications-graphics")
         main_box.pack_start(overlay_card, False, False, 0)
 
         overlay_row1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -263,17 +275,23 @@ class ControlCenterWindow(Gtk.Window):
         overlay_box.pack_start(timer_row, False, False, 0)
 
         action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        clear_btn = Gtk.Button(label="Clear All Annotations")
+        clear_btn = Gtk.Button(label="Clear All")
+        clear_btn.set_image(Gtk.Image.new_from_icon_name("edit-clear", Gtk.IconSize.BUTTON))
+        clear_btn.set_always_show_image(True)
         clear_btn.get_style_context().add_class("clink-btn-danger")
         clear_btn.connect("clicked", self.on_clear_canvas)
         action_row.pack_start(clear_btn, True, True, 0)
 
         undo_btn = Gtk.Button(label="Undo")
+        undo_btn.set_image(Gtk.Image.new_from_icon_name("edit-undo", Gtk.IconSize.BUTTON))
+        undo_btn.set_always_show_image(True)
         undo_btn.get_style_context().add_class("clink-btn-secondary")
         undo_btn.connect("clicked", lambda b: self.renderer.undo() or self.overlay_window.request_redraw())
         action_row.pack_start(undo_btn, True, True, 0)
 
         redo_btn = Gtk.Button(label="Redo")
+        redo_btn.set_image(Gtk.Image.new_from_icon_name("edit-redo", Gtk.IconSize.BUTTON))
+        redo_btn.set_always_show_image(True)
         redo_btn.get_style_context().add_class("clink-btn-secondary")
         redo_btn.connect("clicked", lambda b: self.renderer.redo() or self.overlay_window.request_redraw())
         action_row.pack_start(redo_btn, True, True, 0)
@@ -281,12 +299,12 @@ class ControlCenterWindow(Gtk.Window):
         overlay_box.pack_start(action_row, False, False, 0)
 
         # 5. Paired Devices List Card
-        devices_card, self.devices_box = _create_card("PAIRED ANDROID DEVICES", "📲")
+        devices_card, self.devices_box = _create_card("PAIRED ANDROID DEVICES", "video-display")
         main_box.pack_start(devices_card, False, False, 0)
         self.refresh_devices_list()
 
         # 6. Developer Information Card
-        dev_card, dev_box = _create_card("DEVELOPER & PROJECT INFORMATION", "ℹ️")
+        dev_card, dev_box = _create_card("DEVELOPER & PROJECT INFORMATION", "dialog-information")
         main_box.pack_start(dev_card, False, False, 0)
 
         dev_lbl = Gtk.Label()

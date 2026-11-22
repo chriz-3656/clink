@@ -29,8 +29,10 @@
 Most screen drawing tools require heavy screen capture, video encoding, or proprietary cloud streaming that lag and consume massive CPU/GPU resources.
 
 **Clink takes a radically different approach:**
+- **Native Rust & C-Free Architecture**: High-performance native Rust core (`tokio`, `x11rb`, `tiny-skia`) delivering deterministic <0.1ms latency and under 10MB RAM usage.
 - Only **lightweight vectorized motion and stroke coordinates** are transmitted over local WebSockets.
-- The Linux companion draws strokes locally in hardware using **Cairo** over a native **GTK3 transparent click-through overlay**.
+- The companion draws strokes locally in hardware using **tiny-skia & Cairo** over a native **transparent click-through overlay**.
+- **Undo & Redo Synchronization**: Full stroke history with instantaneous bidirectional undo/redo across mobile canvas and desktop overlay.
 - **Zero screen freezing**: Your mouse clicks, dock, panels, and keyboard shortcuts pass 100% through to your applications underneath.
 - **Offline & Local-First**: No internet access, accounts, or telemetry required.
 
@@ -81,8 +83,12 @@ Don't have a Wi-Fi router or USB cable? Turn on **Personal Hotspot** on your And
 Download the latest release package from the [Releases Page](https://github.com/chriz-3656/clink/releases):
 
 ```bash
-# Debian / Ubuntu / Linux Mint
-sudo dpkg -i clink_1.0.0_all.deb
+# Option A: Standalone Native Rust Binary (Zero Python dependencies!)
+chmod +x clink-native-linux-x86_64
+./clink-native-linux-x86_64
+
+# Option B: Debian / Ubuntu / Linux Mint
+sudo dpkg -i clink_1.0.6_all.deb
 sudo apt-get install -f   # resolve any missing runtime libraries
 
 # Launch the GUI Control Center

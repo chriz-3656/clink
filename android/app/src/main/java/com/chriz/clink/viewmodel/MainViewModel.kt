@@ -31,6 +31,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val undoStack = mutableListOf<List<CanvasStroke>>()
     private val redoStack = mutableListOf<List<CanvasStroke>>()
 
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
+
+    private val _canRedo = MutableStateFlow(false)
+    val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
+
+    private fun updateUndoRedoState() {
+        _canUndo.value = _strokes.value.isNotEmpty() || undoStack.isNotEmpty()
+        _canRedo.value = redoStack.isNotEmpty()
+    }
+
     private val _activeStroke = MutableStateFlow<CanvasStroke?>(null)
     val activeStroke: StateFlow<CanvasStroke?> = _activeStroke.asStateFlow()
 
@@ -221,6 +232,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             _strokes.value = _strokes.value + stroke
             _activeStroke.value = null
+            updateUndoRedoState()
 
             client.sendStrokeEnd(stroke.id, normX, normY, pressure)
 
@@ -254,6 +266,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 _strokes.value = _strokes.value.dropLast(1)
             }
+            updateUndoRedoState()
             client.sendUndo()
         }
     }
@@ -262,6 +275,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (redoStack.isNotEmpty()) {
             undoStack.add(_strokes.value.toList())
             _strokes.value = redoStack.removeAt(redoStack.lastIndex)
+            updateUndoRedoState()
             client.sendRedo()
         }
     }
@@ -272,6 +286,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             redoStack.clear()
             _strokes.value = emptyList()
             _activeStroke.value = null
+            updateUndoRedoState()
             client.sendClear()
         }
     }

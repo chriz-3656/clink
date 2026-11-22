@@ -1,0 +1,36 @@
+[package]
+name = "clink-desktop"
+version = "1.0.6"
+edition = "2021"
+authors = ["chriz-3656 <chrizmonsaji@proton.me>"]
+description = "High-performance native companion for Clink: Android-powered drawing tablet and screen annotation overlay"
+license = "MIT"
+default-run = "clink"
+
+[[bin]]
+name = "clink"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+rand = "0.8"
+hex = "0.4"
+uuid = { version = "1", features = ["v4"] }
+qrcode = "0.14"
+image = { version = "0.25", default-features = false, features = ["png"] }
+tiny-skia = "0.11"
+clap = { version = "4.5", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+colored = "2.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = { version = "0.13", features = ["all-extensions"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
