@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chriz.clink.R
 import com.chriz.clink.data.network.ConnectionStatus
+import com.chriz.clink.data.network.NetworkUtils
 import com.chriz.clink.viewmodel.MainViewModel
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -39,9 +40,10 @@ fun HomeScreen(
     val displayInfo by viewModel.client.displayInfo.collectAsState()
     val pairingError by viewModel.pairingError.collectAsState()
 
-    var isWifiMode by remember { mutableStateOf(false) }
+    var transportMode by remember { mutableIntStateOf(0) }
     var wifiHost by remember { mutableStateOf(viewModel.preferences.host) }
     var wifiPort by remember { mutableStateOf(viewModel.preferences.port.toString()) }
+    var hotspotHost by remember { mutableStateOf("") }
     var showPinDialog by remember { mutableStateOf(false) }
     var pinInput by remember { mutableStateOf("") }
     var showQrDialog by remember { mutableStateOf(false) }
@@ -178,12 +180,12 @@ fun HomeScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // Transport Selector (USB vs Wi-Fi)
+            // Transport Selector (USB vs Wi-Fi LAN vs Hotspot)
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    selected = !isWifiMode,
-                    onClick = { isWifiMode = false },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                    selected = transportMode == 0,
+                    onClick = { transportMode = 0 },
                     icon = {
                         Icon(
                             imageVector = Icons.Default.Usb,
@@ -191,12 +193,12 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp)
                         )
                     },
-                    label = { Text("USB (ADB)", fontWeight = FontWeight.SemiBold) }
+                    label = { Text("USB", fontWeight = FontWeight.SemiBold) }
                 )
                 SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    selected = isWifiMode,
-                    onClick = { isWifiMode = true },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                    selected = transportMode == 1,
+                    onClick = { transportMode = 1 },
                     icon = {
                         Icon(
                             imageVector = Icons.Default.Wifi,
@@ -204,101 +206,305 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp)
                         )
                     },
-                    label = { Text("Wi-Fi LAN", fontWeight = FontWeight.SemiBold) }
+                    label = { Text("Wi-Fi", fontWeight = FontWeight.SemiBold) }
+                )
+                SegmentedButton(
+                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                    selected = transportMode == 2,
+                    onClick = {
+                        transportMode = 2
+                        val gateway = NetworkUtils.getGatewayIp(context)
+                        if (!gateway.isNullOrBlank() && hotspotHost.isBlank()) {
+                            hotspotHost = gateway
+                        }
+                    },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.WifiTethering,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    label = { Text("Hotspot", fontWeight = FontWeight.SemiBold) }
                 )
             }
 
             Spacer(Modifier.height(16.dp))
 
-            if (!isWifiMode) {
-                // USB instructions card
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("USB Quick Connect", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "1. Connect phone with USB Debugging enabled\n2. Open Clink Control Center on Linux (or run clink connect)\n3. Tap 'Connect via USB' below.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                        )
+            when (transportMode) {
+                0 -> {
+                    // USB instructions card
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("USB Quick Connect", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "1. Connect phone with USB Debugging enabled\n2. Open Clink Control Center on PC (or run clink connect)\n3. Tap 'Connect via USB' below.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
                     }
-                }
-                Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = { viewModel.connectUsb() },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Default.Usb, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Connect via USB", fontWeight = FontWeight.SemiBold)
-                }
-            } else {
-                // Wi-Fi inputs
-                OutlinedTextField(
-                    value = wifiHost,
-                    onValueChange = { wifiHost = it },
-                    label = { Text("Linux Host IP Address") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
-                )
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = wifiPort,
-                    onValueChange = { wifiPort = it },
-                    label = { Text("Port (Default: 8765)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
-                )
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+                    Spacer(Modifier.height(16.dp))
                     Button(
-                        onClick = {
-                            val p = wifiPort.toIntOrNull() ?: 8765
-                            viewModel.connectWifi(wifiHost.trim(), p)
-                        },
-                        modifier = Modifier.weight(1f).height(50.dp),
+                        onClick = { viewModel.connectUsb() },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
                         shape = RoundedCornerShape(14.dp)
                     ) {
-                        Icon(Icons.Default.Wifi, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Connect Wi-Fi")
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            val options = ScanOptions().apply {
-                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                setPrompt("Align QR code inside the viewfinder rectangle")
-                                setCameraId(0)
-                                setBeepEnabled(true)
-                                setOrientationLocked(true)
-                                setBarcodeImageEnabled(false)
-                            }
-                            qrScannerLauncher.launch(options)
-                        },
-                        modifier = Modifier.weight(1f).height(50.dp),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Scan QR")
+                        Icon(Icons.Default.Usb, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Connect via USB", fontWeight = FontWeight.SemiBold)
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                TextButton(
-                    onClick = { showQrDialog = true },
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Text("Or enter pairing URI / PIN manually", style = MaterialTheme.typography.bodySmall)
+                1 -> {
+                    // Wi-Fi LAN inputs
+                    OutlinedTextField(
+                        value = wifiHost,
+                        onValueChange = { wifiHost = it },
+                        label = { Text("Desktop PC IP Address") },
+                        placeholder = { Text("e.g. 192.168.1.50") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = wifiPort,
+                        onValueChange = { wifiPort = it },
+                        label = { Text("Port (Default: 8765)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val p = wifiPort.toIntOrNull() ?: 8765
+                                viewModel.connectWifi(wifiHost.trim(), p)
+                            },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.Wifi, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Connect Wi-Fi")
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                val options = ScanOptions().apply {
+                                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                    setPrompt("Align QR code inside the viewfinder rectangle")
+                                    setCameraId(0)
+                                    setBeepEnabled(true)
+                                    setOrientationLocked(true)
+                                    setBarcodeImageEnabled(false)
+                                }
+                                qrScannerLauncher.launch(options)
+                            },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Scan QR")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(
+                        onClick = { showQrDialog = true },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text("Or enter pairing URI / PIN manually", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                2 -> {
+                    // Hotspot Mode
+                    val detectedGateway = remember(transportMode) { NetworkUtils.getGatewayIp(context) }
+                    if (!detectedGateway.isNullOrBlank()) {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Bolt, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("PC Hotspot Gateway Detected", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Connected to PC Hotspot gateway at $detectedGateway",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                Button(
+                                    onClick = {
+                                        val p = wifiPort.toIntOrNull() ?: 8765
+                                        hotspotHost = detectedGateway
+                                        viewModel.connectWifi(detectedGateway, p)
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Bolt, contentDescription = null)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("1-Tap Connect to Host ($detectedGateway)")
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+
+                    // Hotspot Quick Presets
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text("Hotspot Quick Connect Presets", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "If Android is connected to PC Hotspot, tap your PC's OS default IP:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        hotspotHost = "10.42.0.1"
+                                        val p = wifiPort.toIntOrNull() ?: 8765
+                                        viewModel.connectWifi("10.42.0.1", p)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Linux Hotspot", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                        Text("10.42.0.1", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        hotspotHost = "192.168.137.1"
+                                        val p = wifiPort.toIntOrNull() ?: 8765
+                                        viewModel.connectWifi("192.168.137.1", p)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("Windows Hotspot", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                        Text("192.168.137.1", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Phone as Hotspot
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text("Phone as Portable Hotspot", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "1. Turn on Android Hotspot and connect PC to it.\n2. Clink on PC auto-detects 192.168.43.x and displays QR.\n3. Scan QR below or enter PC IP address.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    OutlinedTextField(
+                        value = hotspotHost,
+                        onValueChange = { hotspotHost = it },
+                        label = { Text("PC Hotspot IP Address") },
+                        placeholder = { Text("e.g. 192.168.43.x, 10.42.0.1") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = wifiPort,
+                        onValueChange = { wifiPort = it },
+                        label = { Text("Port (Default: 8765)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val p = wifiPort.toIntOrNull() ?: 8765
+                                if (hotspotHost.isNotBlank()) {
+                                    viewModel.connectWifi(hotspotHost.trim(), p)
+                                } else {
+                                    Toast.makeText(context, "Please enter PC IP address or scan QR", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.WifiTethering, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Connect")
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                val options = ScanOptions().apply {
+                                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                    setPrompt("Scan QR code from Clink on PC")
+                                    setCameraId(0)
+                                    setBeepEnabled(true)
+                                    setOrientationLocked(true)
+                                    setBarcodeImageEnabled(false)
+                                }
+                                qrScannerLauncher.launch(options)
+                            },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Scan QR")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(
+                        onClick = { showQrDialog = true },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text("Or enter pairing URI / PIN manually", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
 

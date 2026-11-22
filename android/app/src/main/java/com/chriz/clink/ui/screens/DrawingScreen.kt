@@ -1,7 +1,9 @@
 package com.chriz.clink.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -92,12 +94,15 @@ fun DrawingScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FilledTonalIconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            FilledTonalIconButton(
+                onClick = onNavigateBack,
+                modifier = Modifier.size(38.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(20.dp))
             }
 
             ModeSegmentedControl(
@@ -106,7 +111,8 @@ fun DrawingScreen(
             )
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Quick Duration Timer Cycle Button
@@ -125,8 +131,8 @@ fun DrawingScreen(
                         toolToastText = if (nextSec == 0) "Duration: Never (Persistent)" else "Duration: ${nextSec}s Auto-Fade"
                         toolToastVisible = true
                     },
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                    modifier = Modifier.height(40.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    modifier = Modifier.height(38.dp)
                 ) {
                     Icon(
                         Icons.Default.Timer,
@@ -141,16 +147,17 @@ fun DrawingScreen(
                     )
                 }
 
-                // Quick Undo & Redo in Top Bar
+                // Quick Undo & Redo in Top Bar (Fixed size 38dp)
                 FilledTonalIconButton(
                     onClick = {
                         viewModel.undo()
                         toolToastText = "Undo"
                         toolToastVisible = true
                     },
-                    enabled = canUndo
+                    enabled = canUndo,
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo", modifier = Modifier.size(18.dp))
                 }
 
                 FilledTonalIconButton(
@@ -159,24 +166,29 @@ fun DrawingScreen(
                         toolToastText = "Redo"
                         toolToastVisible = true
                     },
-                    enabled = canRedo
+                    enabled = canRedo,
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
+                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo", modifier = Modifier.size(18.dp))
                 }
 
-                // Instant Clear All Button
+                // Instant Clear All Button (Fixed size 38dp, guaranteed never squeezed)
                 FilledTonalIconButton(
                     onClick = { viewModel.clearCanvas() },
+                    modifier = Modifier.size(38.dp),
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                     )
                 ) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = "Clear All Annotations")
+                    Icon(Icons.Default.DeleteSweep, contentDescription = "Clear All Annotations", modifier = Modifier.size(20.dp))
                 }
 
-                FilledTonalIconButton(onClick = { showSaveDialog = true }) {
-                    Icon(Icons.Default.Save, contentDescription = "Save Session")
+                FilledTonalIconButton(
+                    onClick = { showSaveDialog = true },
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = "Save Session", modifier = Modifier.size(18.dp))
                 }
             }
         }

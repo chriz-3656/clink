@@ -2,7 +2,9 @@ package com.chriz.clink.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
@@ -74,15 +76,18 @@ fun FloatingDrawingToolbar(
             }
         }
 
-        // Main Toolbar Surface
+        // Main Toolbar Surface with guaranteed horizontal scrolling so no button is ever squeezed
         Surface(
             shape = RoundedCornerShape(32.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
             tonalElevation = 8.dp,
-            shadowElevation = 8.dp
+            shadowElevation = 8.dp,
+            modifier = Modifier.padding(horizontal = 12.dp)
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -112,7 +117,7 @@ fun FloatingDrawingToolbar(
                     onClick = { onToolSelected(DrawingTool.LASER) }
                 )
 
-                // Shapes Dropdown or Direct tools
+                // Shapes tools
                 ToolIconButton(
                     icon = Icons.Default.HorizontalRule,
                     isSelected = currentTool == DrawingTool.LINE,
@@ -134,11 +139,12 @@ fun FloatingDrawingToolbar(
                     onClick = { onToolSelected(DrawingTool.CIRCLE) }
                 )
 
-                VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 4.dp))
+                VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 2.dp))
 
-                // Color Button
+                // Color Button with guaranteed dimensions
                 IconButton(
-                    onClick = { showColorPalette = !showColorPalette; showWidthSlider = false }
+                    onClick = { showColorPalette = !showColorPalette; showWidthSlider = false },
+                    modifier = Modifier.size(38.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -149,22 +155,39 @@ fun FloatingDrawingToolbar(
 
                 // Width Button
                 IconButton(
-                    onClick = { showWidthSlider = !showWidthSlider; showColorPalette = false }
+                    onClick = { showWidthSlider = !showWidthSlider; showColorPalette = false },
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Icon(Icons.Default.LineWeight, contentDescription = "Stroke Width")
+                    Icon(Icons.Default.LineWeight, contentDescription = "Stroke Width", modifier = Modifier.size(20.dp))
                 }
 
-                VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 4.dp))
+                VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 2.dp))
 
-                // Undo / Redo / Clear
-                IconButton(onClick = onUndo, enabled = canUndo) {
-                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+                // Undo / Redo / Clear (Delete) - Fixed size 38dp, never squeezed
+                IconButton(
+                    onClick = onUndo,
+                    enabled = canUndo,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo", modifier = Modifier.size(20.dp))
                 }
-                IconButton(onClick = onRedo, enabled = canRedo) {
-                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
+                IconButton(
+                    onClick = onRedo,
+                    enabled = canRedo,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo", modifier = Modifier.size(20.dp))
                 }
-                IconButton(onClick = onClear) {
-                    Icon(Icons.Default.DeleteOutline, contentDescription = "Clear Canvas")
+                IconButton(
+                    onClick = onClear,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(
+                        Icons.Default.DeleteSweep,
+                        contentDescription = "Clear Canvas",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
         }

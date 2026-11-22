@@ -4,7 +4,7 @@ use std::time::Duration;
 use tokio::sync::broadcast;
 
 use crate::adb::AdbManager;
-use crate::network;
+use crate::network::{self, NetworkInterfaceInfo};
 use crate::overlay::renderer::OverlayRenderer;
 use crate::pairing::PairingManager;
 use crate::qr;
@@ -12,6 +12,8 @@ use crate::qr;
 pub struct ClinkGuiApp {
     pub port: u16,
     pub lan_ip: String,
+    pub available_interfaces: Vec<NetworkInterfaceInfo>,
+    pub selected_interface_idx: usize,
     pub pairing_mgr: PairingManager,
     pub adb_mgr: AdbManager,
     pub renderer: Arc<Mutex<OverlayRenderer>>,
@@ -19,6 +21,7 @@ pub struct ClinkGuiApp {
     pub current_pin: String,
     pub pairing_uri: String,
     pub qr_texture: Option<egui::TextureHandle>,
+    pub adb_installed: bool,
     pub adb_active: bool,
     pub adb_status_msg: String,
     pub overlay_active: bool,
@@ -38,18 +41,27 @@ impl ClinkGuiApp {
         screen_size: (u32, u32),
         adb_active: bool,
     ) -> Self {
-        let lan_ip = network::get_lan_ip();
+        let available_interfaces = network::get_available_interfaces();
+        let lan_ip = available_interfaces
+            .first()
+            .map(|i| i.ip.clone())
+            .unwrap_or_else(|| "127.0.0.1".to_string());
         let current_pin = pairing_mgr.get_pin();
         let pairing_uri = qr::generate_pairing_uri(&lan_ip, port, &current_pin);
-        let adb_status_msg = if adb_active {
+        let adb_installed = adb_mgr.is_installed();
+        let adb_status_msg = if !adb_installed {
+            "ADB is not installed on this computer".to_string()
+        } else if adb_active {
             "Active (adb reverse tcp:8765 tcp:8765)".to_string()
         } else {
-            "No USB device found (Check adb devices)".to_string()
+            "ADB found. Plug in USB cable to connect".to_string()
         };
 
         Self {
             port,
             lan_ip,
+            available_interfaces,
+            selected_interface_idx: 0,
             pairing_mgr,
             adb_mgr,
             renderer,
@@ -57,6 +69,7 @@ impl ClinkGuiApp {
             current_pin,
             pairing_uri,
             qr_texture: None,
+            adb_installed,
             adb_active,
             adb_status_msg,
             overlay_active: true,
@@ -64,6 +77,20 @@ impl ClinkGuiApp {
             fade_duration_secs: 0,
             screen_size,
             status_notification: None,
+        }
+    }
+
+    pub fn set_interface_idx(&mut self, idx: usize) {
+        if idx < self.available_interfaces.len() {
+            self.selected_interface_idx = idx;
+            self.lan_ip = self.available_interfaces[idx].ip.clone();
+            self.pairing_uri = qr::generate_pairing_uri(&self.lan_ip, self.port, &self.current_pin);
+            self.qr_texture = None;
+            let label = self.available_interfaces[idx].label.clone();
+            self.status_notification = Some((
+                format!("Switched to network: {}", label),
+                std::time::Instant::now(),
+            ));
         }
     }
 
@@ -77,22 +104,38 @@ impl ClinkGuiApp {
         ));
     }
 
-    pub fn refresh_network_ip(&mut self) {
-        self.lan_ip = network::get_lan_ip();
+    pub fn refresh_network(&mut self) {
+        self.available_interfaces = network::get_available_interfaces();
+        if self.selected_interface_idx >= self.available_interfaces.len() {
+            self.selected_interface_idx = 0;
+        }
+        self.lan_ip = self.available_interfaces
+            .get(self.selected_interface_idx)
+            .map(|i| i.ip.clone())
+            .unwrap_or_else(|| "127.0.0.1".to_string());
         self.pairing_uri = qr::generate_pairing_uri(&self.lan_ip, self.port, &self.current_pin);
         self.qr_texture = None;
         self.status_notification = Some((
-            format!("Refreshed LAN IP: {}", self.lan_ip),
+            format!("Refreshed network interfaces (found {})", self.available_interfaces.len()),
             std::time::Instant::now(),
         ));
     }
 
     pub fn configure_adb(&mut self) {
+        self.adb_installed = self.adb_mgr.is_installed();
+        if !self.adb_installed {
+            self.status_notification = Some((
+                "ADB tool missing. Please install adb first.".to_string(),
+                std::time::Instant::now(),
+            ));
+            return;
+        }
+
         self.adb_active = self.adb_mgr.setup_reverse();
         self.adb_status_msg = if self.adb_active {
             "Active (adb reverse tcp:8765 tcp:8765)".to_string()
         } else {
-            "Failed to reverse port (Check USB debugging)".to_string()
+            "Failed to reverse port (Check USB debugging on phone)".to_string()
         };
         self.status_notification = Some((
             if self.adb_active {
@@ -105,13 +148,31 @@ impl ClinkGuiApp {
     }
 
     pub fn refresh_adb(&mut self) {
+        self.adb_installed = self.adb_mgr.is_installed();
+        if !self.adb_installed {
+            self.adb_status_msg = "ADB tool is not installed on this system".to_string();
+            return;
+        }
+
         let devices = self.adb_mgr.get_devices();
         if devices.is_empty() {
             self.adb_active = false;
-            self.adb_status_msg = "No USB devices detected".to_string();
+            self.adb_status_msg = "No USB devices detected (connect phone)".to_string();
         } else {
             self.adb_status_msg = format!("Found {} device(s): {}", devices.len(), devices.join(", "));
         }
+    }
+
+    pub fn install_adb_prompt(&mut self) {
+        match AdbManager::try_install_adb() {
+            Ok(msg) => {
+                self.status_notification = Some((msg, std::time::Instant::now()));
+            }
+            Err(e) => {
+                self.status_notification = Some((format!("Install hint: {}", e), std::time::Instant::now()));
+            }
+        }
+        self.adb_installed = self.adb_mgr.is_installed();
     }
 
     pub fn clear_canvas(&mut self) {
@@ -189,6 +250,7 @@ impl eframe::App for ClinkGuiApp {
         let pink = egui::Color32::from_rgb(0xFF, 0x33, 0x66);
         let cyan = egui::Color32::from_rgb(0x00, 0xE5, 0xFF);
         let green = egui::Color32::from_rgb(0x00, 0xE6, 0x76);
+        let orange = egui::Color32::from_rgb(0xFF, 0x91, 0x00);
         let bg_color = egui::Color32::from_rgb(0x12, 0x12, 0x18);
         let card_bg = egui::Color32::from_rgb(0x19, 0x19, 0x26);
         let border_color = egui::Color32::from_rgb(0x28, 0x28, 0x3E);
@@ -227,7 +289,7 @@ impl eframe::App for ClinkGuiApp {
 
             // Notification Toast Pill
             if let Some((msg, time)) = &self.status_notification {
-                if time.elapsed() < Duration::from_secs(3) {
+                if time.elapsed() < Duration::from_secs(4) {
                     egui::Frame::canvas(ui.style())
                         .fill(egui::Color32::from_rgb(0x20, 0x18, 0x2C))
                         .stroke(egui::Stroke::new(1.0, pink))
@@ -243,14 +305,66 @@ impl eframe::App for ClinkGuiApp {
                 }
             }
 
-            // --- CARD 1: SERVICE & CONNECTION URLS ---
-            render_card(ui, "COMPANION SERVICE", cyan, card_bg, border_color, |ui| {
+            // --- CARD 1: SERVICE & CONNECTION URLS (WITH HOTSPOT SELECTOR) ---
+            render_card(ui, "COMPANION SERVICE & NETWORK", cyan, card_bg, border_color, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new("Service Status:").color(text_dim));
                     ui.colored_label(green, egui::RichText::new(format!("Active (Port {})", self.port)).strong());
                 });
 
-                ui.add_space(4.0);
+                ui.add_space(6.0);
+
+                // Network Interface Selector
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("Active Interface:").color(text_dim));
+                    let current_label = self.available_interfaces
+                        .get(self.selected_interface_idx)
+                        .map(|i| i.label.clone())
+                        .unwrap_or_else(|| self.lan_ip.clone());
+
+                    let mut selected_idx = self.selected_interface_idx;
+                    let mut switch_to_idx = None;
+                    egui::ComboBox::from_id_salt("net_interface_combo")
+                        .selected_text(egui::RichText::new(&current_label).size(11.5).strong())
+                        .show_ui(ui, |ui| {
+                            for (idx, iface) in self.available_interfaces.iter().enumerate() {
+                                let label_text = if iface.is_hotspot {
+                                    format!("⚡ {}", iface.label)
+                                } else {
+                                    format!("📶 {}", iface.label)
+                                };
+                                if ui.selectable_value(&mut selected_idx, idx, label_text).clicked() {
+                                    switch_to_idx = Some(idx);
+                                }
+                            }
+                        });
+                    if let Some(idx) = switch_to_idx {
+                        self.set_interface_idx(idx);
+                    }
+                });
+
+                // Hotspot Highlight Badge if currently on Hotspot
+                let is_hotspot = self.available_interfaces
+                    .get(self.selected_interface_idx)
+                    .map(|i| i.is_hotspot)
+                    .unwrap_or(false);
+
+                if is_hotspot {
+                    ui.add_space(4.0);
+                    egui::Frame::canvas(ui.style())
+                        .fill(egui::Color32::from_rgb(0x10, 0x28, 0x20))
+                        .stroke(egui::Stroke::new(1.0, green))
+                        .corner_radius(egui::CornerRadius::same(6))
+                        .inner_margin(egui::Margin::symmetric(10, 4))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.colored_label(green, egui::RichText::new("⚡ Portable Hotspot Active").strong().size(11.0));
+                                ui.label(egui::RichText::new("— Direct phone-to-PC connection (No router or internet needed)").size(10.5).color(text_dim));
+                            });
+                        });
+                }
+
+                ui.add_space(6.0);
                 egui::Frame::canvas(ui.style())
                     .fill(egui::Color32::from_rgb(0x0F, 0x0F, 0x16))
                     .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(0x22, 0x22, 0x34)))
@@ -284,8 +398,8 @@ impl eframe::App for ClinkGuiApp {
                             if ui.add(egui::Button::new(egui::RichText::new("New PIN").strong()).fill(pink)).clicked() {
                                 self.regenerate_pin();
                             }
-                            if ui.add(egui::Button::new(egui::RichText::new("Refresh IP")).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
-                                self.refresh_network_ip();
+                            if ui.add(egui::Button::new(egui::RichText::new("Refresh Net")).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
+                                self.refresh_network();
                             }
                         });
 
@@ -315,23 +429,70 @@ impl eframe::App for ClinkGuiApp {
 
             ui.add_space(10.0);
 
-            // --- CARD 3: USB CONNECTION (ADB REVERSE) ---
+            // --- CARD 3: USB CONNECTION & DEPENDENCY DETECTOR ---
             render_card(ui, "USB CONNECTION (ADB REVERSE)", cyan, card_bg, border_color, |ui| {
-                ui.horizontal(|ui| {
-                    let status_color = if self.adb_active { green } else { text_dim };
-                    let dot = if self.adb_active { "●" } else { "○" };
-                    ui.colored_label(status_color, egui::RichText::new(format!("{} {}", dot, self.adb_status_msg)).size(11.5));
-                });
+                if !self.adb_installed {
+                    // Missing Dependency Warning Box
+                    egui::Frame::canvas(ui.style())
+                        .fill(egui::Color32::from_rgb(0x28, 0x1E, 0x14))
+                        .stroke(egui::Stroke::new(1.0, orange))
+                        .corner_radius(egui::CornerRadius::same(8))
+                        .inner_margin(egui::Margin::symmetric(12, 10))
+                        .show(ui, |ui| {
+                            ui.vertical(|ui| {
+                                ui.horizontal(|ui| {
+                                    ui.colored_label(orange, egui::RichText::new("⚠️ Dependency Missing: Android Debug Bridge ('adb')").strong());
+                                });
+                                ui.label(egui::RichText::new("USB cable connections require the 'adb' tool to forward port 8765.").color(text_dim).size(11.0));
 
-                ui.add_space(6.0);
-                ui.horizontal(|ui| {
-                    if ui.add(egui::Button::new(egui::RichText::new("Configure USB (adb reverse)").strong()).fill(pink)).clicked() {
-                        self.configure_adb();
-                    }
-                    if ui.add(egui::Button::new(egui::RichText::new("Refresh USB")).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
-                        self.refresh_adb();
-                    }
-                });
+                                ui.add_space(6.0);
+                                ui.horizontal(|ui| {
+                                    #[cfg(target_os = "linux")]
+                                    {
+                                        if ui.add(egui::Button::new(egui::RichText::new("⚡ Auto-Install ADB").strong()).fill(orange)).clicked() {
+                                            self.install_adb_prompt();
+                                        }
+                                        if ui.add(egui::Button::new(egui::RichText::new("Copy: sudo apt install adb")).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
+                                            ui.ctx().copy_text("sudo apt install -y adb".to_string());
+                                            self.status_notification = Some(("Copied 'sudo apt install -y adb' to clipboard!".to_string(), std::time::Instant::now()));
+                                        }
+                                    }
+                                    #[cfg(target_os = "windows")]
+                                    {
+                                        if ui.add(egui::Button::new(egui::RichText::new("⚡ Auto-Install (winget)").strong()).fill(orange)).clicked() {
+                                            self.install_adb_prompt();
+                                        }
+                                        if ui.add(egui::Button::new(egui::RichText::new("📥 Download ZIP (Official)")).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
+                                            let _ = std::process::Command::new("cmd")
+                                                .args(["/C", "start", "https://developer.android.com/tools/releases/platform-tools"])
+                                                .spawn();
+                                            self.status_notification = Some(("Opening official Android Platform-Tools download page...".to_string(), std::time::Instant::now()));
+                                        }
+                                    }
+                                    if ui.add(egui::Button::new(egui::RichText::new("Check Again")).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
+                                        self.refresh_adb();
+                                    }
+                                });
+                            });
+                        });
+                } else {
+                    // Normal ADB Status Row
+                    ui.horizontal(|ui| {
+                        let status_color = if self.adb_active { green } else { text_dim };
+                        let dot = if self.adb_active { "●" } else { "○" };
+                        ui.colored_label(status_color, egui::RichText::new(format!("{} {}", dot, self.adb_status_msg)).size(11.5));
+                    });
+
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        if ui.add(egui::Button::new(egui::RichText::new("Configure USB (adb reverse)").strong()).fill(pink)).clicked() {
+                            self.configure_adb();
+                        }
+                        if ui.add(egui::Button::new(egui::RichText::new("Refresh USB")).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
+                            self.refresh_adb();
+                        }
+                    });
+                }
             });
 
             ui.add_space(10.0);
@@ -402,13 +563,13 @@ impl eframe::App for ClinkGuiApp {
 
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    if ui.add(egui::Button::new(egui::RichText::new("Clear All").strong()).fill(pink)).clicked() {
+                    if ui.add_sized([90.0, 30.0], egui::Button::new(egui::RichText::new("🗑 Clear All").strong()).fill(pink)).clicked() {
                         self.clear_canvas();
                     }
-                    if ui.add(egui::Button::new(egui::RichText::new("Undo").strong()).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
+                    if ui.add_sized([80.0, 30.0], egui::Button::new(egui::RichText::new("↩ Undo").strong()).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
                         self.undo();
                     }
-                    if ui.add(egui::Button::new(egui::RichText::new("Redo").strong()).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
+                    if ui.add_sized([80.0, 30.0], egui::Button::new(egui::RichText::new("↪ Redo").strong()).fill(egui::Color32::from_rgb(0x2A, 0x2A, 0x3E))).clicked() {
                         self.redo();
                     }
                 });
@@ -443,6 +604,12 @@ impl eframe::App for ClinkGuiApp {
 
                     ui.label(egui::RichText::new("Platform Backend:").color(text_dim));
                     ui.label(egui::RichText::new(platform_name).strong());
+                });
+                ui.horizontal(|ui| {
+                    let adb_str = if self.adb_installed { "Installed" } else { "Missing" };
+                    let adb_color = if self.adb_installed { green } else { orange };
+                    ui.label(egui::RichText::new("ADB Tool Status:").color(text_dim));
+                    ui.colored_label(adb_color, egui::RichText::new(adb_str).strong());
                 });
             });
 

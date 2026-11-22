@@ -8,7 +8,7 @@ import java.net.InetAddress
 object NetworkUtils {
     /**
      * Attempts to find the default gateway IP address for the currently active network.
-     * When connected via USB Tethering, this gateway IP corresponds to the host Linux PC.
+     * When connected via USB Tethering or PC Hotspot, this gateway IP corresponds to the host PC.
      */
     fun getGatewayIp(context: Context): String? {
         try {
@@ -23,6 +23,28 @@ object NetworkUtils {
                             if (!ip.isNullOrBlank() && ip != "0.0.0.0" && !ip.startsWith("::")) {
                                 return ip
                             }
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return null
+    }
+
+    /**
+     * Gets the first non-loopback IPv4 address of the Android device.
+     */
+    fun getLocalIp(): String? {
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return null
+            for (intf in interfaces) {
+                val addrs = intf.inetAddresses ?: continue
+                for (addr in addrs) {
+                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                        val host = addr.hostAddress ?: continue
+                        if (!host.startsWith("127.")) {
+                            return host
                         }
                     }
                 }
