@@ -27,10 +27,16 @@ echo "[2/8] Running Native Rust & Linux Companion test suites..."
 cargo test --all
 PYTHONPATH="$REPO_ROOT/linux/src:$REPO_ROOT/linux/tests" pytest -v "$REPO_ROOT/linux/tests"
 
-# 3. Build Native Rust Executable
-echo "[3/8] Compiling Native Rust Companion binary..."
-cargo build --release --bin clink
-cp "$REPO_ROOT/target/release/clink" "$DIST_DIR/clink-native-linux-x86_64"
+# 3. Build Native Rust Executable (Statically linked via musl for 100% portable Linux compatibility)
+echo "[3/8] Compiling Native Rust Companion binary (Static musl)..."
+rustup target add x86_64-unknown-linux-musl 2>/dev/null || true
+if command -v musl-gcc >/dev/null 2>&1; then
+    cargo build --release --target x86_64-unknown-linux-musl --bin clink
+    cp "$REPO_ROOT/target/x86_64-unknown-linux-musl/release/clink" "$DIST_DIR/clink-native-linux-x86_64"
+else
+    cargo build --release --bin clink
+    cp "$REPO_ROOT/target/release/clink" "$DIST_DIR/clink-native-linux-x86_64"
+fi
 
 # 4. Build Linux Packages
 echo "[4/8] Building Linux distribution packages..."
