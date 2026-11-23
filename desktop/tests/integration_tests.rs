@@ -140,3 +140,23 @@ fn test_renderer_auto_fade_timer() {
     assert!(renderer.tick_fade());
     assert_eq!(renderer.strokes.len(), 0);
 }
+
+#[test]
+fn test_renderer_arrow_stroke() {
+    let mut renderer = OverlayRenderer::new(1920, 1080);
+    let arrow_stroke = Stroke {
+        stroke_id: "arrow_1".to_string(),
+        tool: "arrow".to_string(),
+        color: "#00E5FF".to_string(),
+        width: 5.0,
+        points: vec![
+            Point { x: 0.1, y: 0.1, pressure: 1.0, timestamp: 0 },
+            Point { x: 0.5, y: 0.5, pressure: 1.0, timestamp: 1 },
+        ],
+        is_completed: false,
+    };
+    renderer.start_stroke(arrow_stroke);
+    renderer.end_stroke("arrow_1", None);
+    assert_eq!(renderer.strokes.len(), 1);
+    assert_eq!(renderer.strokes[0].stroke.tool, "arrow");
+}

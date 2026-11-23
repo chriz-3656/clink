@@ -38,6 +38,8 @@ fun DrawingCanvas(
     activeStroke: CanvasStroke?,
     laserPosition: Offset?,
     palmRejectionEnabled: Boolean,
+    sensitivity: Float = 1.0f,
+    dragLockEnabled: Boolean = false,
     onStrokeStart: (Float, Float, Float) -> Unit,
     onStrokeMove: (List<CanvasPoint>) -> Unit,
     onStrokeEnd: (Float, Float, Float) -> Unit,
@@ -49,6 +51,16 @@ fun DrawingCanvas(
     var canvasSize by remember { mutableStateOf(Size.Zero) }
     var lastTouchX by remember { mutableStateOf(0f) }
     var lastTouchY by remember { mutableStateOf(0f) }
+    var touchDownX by remember { mutableStateOf(0f) }
+    var touchDownY by remember { mutableStateOf(0f) }
+    var touchDownTime by remember { mutableStateOf(0L) }
+    var isMovedBeyondTap by remember { mutableStateOf(false) }
+    var isTwoFingerTap by remember { mutableStateOf(false) }
+
+    var localActivePoints by remember { mutableStateOf<List<CanvasPoint>>(emptyList()) }
+    var localActiveTool by remember { mutableStateOf(currentTool) }
+    var localActiveColor by remember { mutableStateOf(currentColor) }
+    var localActiveWidth by remember { mutableStateOf(currentWidth) }
 
     Box(
         modifier = modifier
@@ -66,14 +78,18 @@ fun DrawingCanvas(
                     val pressure = motionEvent.pressure.coerceIn(0.1f, 1.0f)
                     val toolType = motionEvent.getToolType(0)
 
-                    // Palm rejection: ignore finger if palm rejection enabled and stylus is preferred
-                    if (palmRejectionEnabled && toolType == MotionEvent.TOOL_TYPE_FINGER && motionEvent.size > 0.5f) {
+                    // Palm rejection: only reject if device hardware explicitly flags a palm touch
+                    if (palmRejectionEnabled && toolType == 4 /* MotionEvent.TOOL_TYPE_PALM */) {
                         return@pointerInteropFilter true
                     }
 
                     if (mode == ClinkMode.ABSOLUTE_ANNOTATION) {
                         when (motionEvent.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
+                                localActiveTool = currentTool
+                                localActiveColor = currentColor
+                                localActiveWidth = currentWidth
+                                localActivePoints = listOf(CanvasPoint(normX, normY, pressure))
                                 onStrokeStart(normX, normY, pressure)
                             }
                             MotionEvent.ACTION_MOVE -> {
@@ -85,35 +101,77 @@ fun DrawingCanvas(
                                     batched.add(CanvasPoint(hX, hY, hP, motionEvent.getHistoricalEventTime(i)))
                                 }
                                 batched.add(CanvasPoint(normX, normY, pressure, motionEvent.eventTime))
+                                localActivePoints = localActivePoints + batched
                                 onStrokeMove(batched)
                             }
                             MotionEvent.ACTION_UP -> {
+                                localActivePoints = emptyList()
                                 onStrokeEnd(normX, normY, pressure)
                             }
                             MotionEvent.ACTION_CANCEL -> {
+                                localActivePoints = emptyList()
                                 onStrokeEnd(normX, normY, 0f)
                             }
                         }
                     } else {
-                        // RELATIVE_TABLET MODE
+                        // RELATIVE_TABLET MODE: Smooth relative desktop controller
                         when (motionEvent.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
                                 lastTouchX = motionEvent.x
                                 lastTouchY = motionEvent.y
-                                onPointerDown(1, normX, normY, pressure)
+                                touchDownX = motionEvent.x
+                                touchDownY = motionEvent.y
+                                touchDownTime = motionEvent.eventTime
+                                isMovedBeyondTap = false
+                                isTwoFingerTap = false
+                                if (toolType == MotionEvent.TOOL_TYPE_STYLUS || dragLockEnabled) {
+                                    onPointerDown(1, normX, normY, pressure)
+                                }
+                            }
+                            MotionEvent.ACTION_POINTER_DOWN -> {
+                                if (motionEvent.pointerCount == 2) {
+                                    isTwoFingerTap = true
+                                }
                             }
                             MotionEvent.ACTION_MOVE -> {
-                                val dx = (motionEvent.x - lastTouchX) / w
-                                val dy = (motionEvent.y - lastTouchY) / h
+                                val rawDx = motionEvent.x - lastTouchX
+                                val rawDy = motionEvent.y - lastTouchY
                                 lastTouchX = motionEvent.x
                                 lastTouchY = motionEvent.y
+
+                                val dist = kotlin.math.hypot(
+                                    (motionEvent.x - touchDownX).toDouble(),
+                                    (motionEvent.y - touchDownY).toDouble()
+                                ).toFloat()
+                                if (dist > 10f) {
+                                    isMovedBeyondTap = true
+                                }
+
+                                val dx = rawDx * sensitivity
+                                val dy = rawDy * sensitivity
                                 onCursorMove(dx, dy, normX, normY, pressure)
                             }
+                            MotionEvent.ACTION_POINTER_UP -> {
+                                if (isTwoFingerTap && !isMovedBeyondTap) {
+                                    // Two-finger tap -> Right Click (button 3)
+                                    onPointerDown(3, normX, normY, pressure)
+                                    onPointerUp(3, normX, normY)
+                                }
+                            }
                             MotionEvent.ACTION_UP -> {
-                                onPointerUp(1, normX, normY)
+                                val duration = motionEvent.eventTime - touchDownTime
+                                if (toolType == MotionEvent.TOOL_TYPE_STYLUS || dragLockEnabled) {
+                                    onPointerUp(1, normX, normY)
+                                } else if (!isMovedBeyondTap && !isTwoFingerTap && duration < 320L) {
+                                    // Single tap -> Left Click (button 1)
+                                    onPointerDown(1, normX, normY, pressure)
+                                    onPointerUp(1, normX, normY)
+                                }
                             }
                             MotionEvent.ACTION_CANCEL -> {
-                                onPointerUp(1, normX, normY)
+                                if (toolType == MotionEvent.TOOL_TYPE_STYLUS || dragLockEnabled) {
+                                    onPointerUp(1, normX, normY)
+                                }
                             }
                         }
                     }
@@ -133,9 +191,21 @@ fun DrawingCanvas(
                 drawStroke(stroke, size)
             }
 
-            // Draw active in-progress stroke
-            activeStroke?.let {
-                drawStroke(it, size)
+            // Draw active in-progress stroke with 0ms ink response
+            if (localActivePoints.isNotEmpty()) {
+                val liveStroke = CanvasStroke(
+                    id = "live",
+                    tool = localActiveTool,
+                    color = localActiveColor.value.toLong(),
+                    width = localActiveWidth,
+                    points = localActivePoints.toMutableList(),
+                    isCompleted = false
+                )
+                drawStroke(liveStroke, size)
+            } else {
+                activeStroke?.let {
+                    drawStroke(it, size)
+                }
             }
 
             // Draw laser pointer
@@ -159,10 +229,12 @@ fun DrawingCanvas(
 
         if (mode == ClinkMode.RELATIVE_TABLET) {
             Text(
-                text = "Graphics Tablet Active\nStylus acts as desktop input controller",
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                text = "Graphics Tablet Active\nStylus or touch operates as desktop cursor controller\nTap to click  •  Two-finger tap for right-click",
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
                 fontWeight = FontWeight.Medium,
-                fontSize = 16.sp,
+                fontSize = 15.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                lineHeight = 22.sp,
                 modifier = Modifier.align(Alignment.Center)
             )
         }
@@ -259,22 +331,37 @@ private fun DrawScope.drawStroke(stroke: CanvasStroke, size: Size) {
                 val p2 = pts.last()
                 val start = Offset(p1.x * size.width, p1.y * size.height)
                 val end = Offset(p2.x * size.width, p2.y * size.height)
-                drawLine(color = strokeColor, start = start, end = end, strokeWidth = width, cap = StrokeCap.Round)
+                val dx = end.x - start.x
+                val dy = end.y - start.y
+                val dist = kotlin.math.hypot(dx, dy)
+                if (dist > 3f) {
+                    val angle = atan2(dy.toDouble(), dx.toDouble())
+                    val headLen = kotlin.math.max(14f, kotlin.math.min(width * 5.5f, dist * 0.45f))
+                    val headAngle = Math.PI / 6.0
 
-                val angle = atan2((end.y - start.y).toDouble(), (end.x - start.x).toDouble())
-                val arrowLen = (width * 3.5f).coerceAtLeast(24f)
-                val arrowAngle = Math.PI / 6.0
+                    // Draw main arrow shaft
+                    drawLine(color = strokeColor, start = start, end = end, strokeWidth = width, cap = StrokeCap.Round)
 
-                val left = Offset(
-                    (end.x - arrowLen * cos(angle - arrowAngle)).toFloat(),
-                    (end.y - arrowLen * sin(angle - arrowAngle)).toFloat()
-                )
-                val right = Offset(
-                    (end.x - arrowLen * cos(angle + arrowAngle)).toFloat(),
-                    (end.y - arrowLen * sin(angle + arrowAngle)).toFloat()
-                )
-                drawLine(color = strokeColor, start = end, end = left, strokeWidth = width, cap = StrokeCap.Round)
-                drawLine(color = strokeColor, start = end, end = right, strokeWidth = width, cap = StrokeCap.Round)
+                    val pLeft = Offset(
+                        (end.x - headLen * cos(angle - headAngle)).toFloat(),
+                        (end.y - headLen * sin(angle - headAngle)).toFloat()
+                    )
+                    val pRight = Offset(
+                        (end.x - headLen * cos(angle + headAngle)).toFloat(),
+                        (end.y - headLen * sin(angle + headAngle)).toFloat()
+                    )
+
+                    // Draw solid filled arrowhead polygon for clear, crisp presentation
+                    val headPath = Path().apply {
+                        moveTo(end.x, end.y)
+                        lineTo(pLeft.x, pLeft.y)
+                        lineTo(pRight.x, pRight.y)
+                        close()
+                    }
+                    drawPath(path = headPath, color = strokeColor)
+                    drawLine(color = strokeColor, start = end, end = pLeft, strokeWidth = width, cap = StrokeCap.Round)
+                    drawLine(color = strokeColor, start = end, end = pRight, strokeWidth = width, cap = StrokeCap.Round)
+                }
             }
         }
         DrawingTool.RECTANGLE -> {

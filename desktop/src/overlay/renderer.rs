@@ -247,44 +247,95 @@ impl OverlayRenderer {
         let mut pb = PathBuilder::new();
 
         match stroke.tool.as_str() {
-            "line" if stroke.points.len() >= 2 => {
-                let p0 = &stroke.points[0];
-                let p1 = &stroke.points[stroke.points.len() - 1];
-                pb.move_to(p0.x * canvas_w as f32, p0.y * canvas_h as f32);
-                pb.line_to(p1.x * canvas_w as f32, p1.y * canvas_h as f32);
+            "line" => {
+                if stroke.points.len() >= 2 {
+                    let p0 = &stroke.points[0];
+                    let p1 = &stroke.points[stroke.points.len() - 1];
+                    pb.move_to(p0.x * canvas_w as f32, p0.y * canvas_h as f32);
+                    pb.line_to(p1.x * canvas_w as f32, p1.y * canvas_h as f32);
+                }
             }
-            "rectangle" if stroke.points.len() >= 2 => {
-                let p0 = &stroke.points[0];
-                let p1 = &stroke.points[stroke.points.len() - 1];
-                let x0 = p0.x * canvas_w as f32;
-                let y0 = p0.y * canvas_h as f32;
-                let x1 = p1.x * canvas_w as f32;
-                let y1 = p1.y * canvas_h as f32;
+            "arrow" => {
+                if stroke.points.len() >= 2 {
+                    let p0 = &stroke.points[0];
+                    let p1 = &stroke.points[stroke.points.len() - 1];
+                    let x0 = p0.x * canvas_w as f32;
+                    let y0 = p0.y * canvas_h as f32;
+                    let x1 = p1.x * canvas_w as f32;
+                    let y1 = p1.y * canvas_h as f32;
 
-                let rx = x0.min(x1);
-                let ry = y0.min(y1);
-                let rw = (x1 - x0).abs();
-                let rh = (y1 - y0).abs();
+                    let dx = x1 - x0;
+                    let dy = y1 - y0;
+                    let dist = (dx * dx + dy * dy).sqrt();
 
-                pb.move_to(rx, ry);
-                pb.line_to(rx + rw, ry);
-                pb.line_to(rx + rw, ry + rh);
-                pb.line_to(rx, ry + rh);
-                pb.close();
+                    if dist > 3.0 {
+                        // Main shaft
+                        pb.move_to(x0, y0);
+                        pb.line_to(x1, y1);
+
+                        let angle = dy.atan2(dx);
+                        let head_len = ((width * 5.5).min(dist * 0.45)).max(14.0);
+                        let head_angle = std::f32::consts::PI / 6.0;
+
+                        let left_x = x1 - head_len * (angle - head_angle).cos();
+                        let left_y = y1 - head_len * (angle - head_angle).sin();
+                        let right_x = x1 - head_len * (angle + head_angle).cos();
+                        let right_y = y1 - head_len * (angle + head_angle).sin();
+
+                        // Solid filled arrowhead triangle
+                        let mut head_pb = PathBuilder::new();
+                        head_pb.move_to(x1, y1);
+                        head_pb.line_to(left_x, left_y);
+                        head_pb.line_to(right_x, right_y);
+                        head_pb.close();
+                        if let Some(head_path) = head_pb.finish() {
+                            pixmap.fill_path(&head_path, &paint, FillRule::Winding, Transform::identity(), None);
+                        }
+
+                        // Arrowhead outer stroke
+                        pb.move_to(left_x, left_y);
+                        pb.line_to(x1, y1);
+                        pb.line_to(right_x, right_y);
+                        pb.close();
+                    }
+                }
             }
-            "circle" if stroke.points.len() >= 2 => {
-                let p0 = &stroke.points[0];
-                let p1 = &stroke.points[stroke.points.len() - 1];
-                let x0 = p0.x * canvas_w as f32;
-                let y0 = p0.y * canvas_h as f32;
-                let x1 = p1.x * canvas_w as f32;
-                let y1 = p1.y * canvas_h as f32;
+            "rectangle" => {
+                if stroke.points.len() >= 2 {
+                    let p0 = &stroke.points[0];
+                    let p1 = &stroke.points[stroke.points.len() - 1];
+                    let x0 = p0.x * canvas_w as f32;
+                    let y0 = p0.y * canvas_h as f32;
+                    let x1 = p1.x * canvas_w as f32;
+                    let y1 = p1.y * canvas_h as f32;
 
-                let cx = (x0 + x1) / 2.0;
-                let cy = (y0 + y1) / 2.0;
-                let radius = (((x1 - x0).powi(2) + (y1 - y0).powi(2)).sqrt() / 2.0).max(1.0);
+                    let rx = x0.min(x1);
+                    let ry = y0.min(y1);
+                    let rw = (x1 - x0).abs();
+                    let rh = (y1 - y0).abs();
 
-                pb.push_circle(cx, cy, radius);
+                    pb.move_to(rx, ry);
+                    pb.line_to(rx + rw, ry);
+                    pb.line_to(rx + rw, ry + rh);
+                    pb.line_to(rx, ry + rh);
+                    pb.close();
+                }
+            }
+            "circle" => {
+                if stroke.points.len() >= 2 {
+                    let p0 = &stroke.points[0];
+                    let p1 = &stroke.points[stroke.points.len() - 1];
+                    let x0 = p0.x * canvas_w as f32;
+                    let y0 = p0.y * canvas_h as f32;
+                    let x1 = p1.x * canvas_w as f32;
+                    let y1 = p1.y * canvas_h as f32;
+
+                    let cx = (x0 + x1) / 2.0;
+                    let cy = (y0 + y1) / 2.0;
+                    let radius = (((x1 - x0).powi(2) + (y1 - y0).powi(2)).sqrt() / 2.0).max(1.0);
+
+                    pb.push_circle(cx, cy, radius);
+                }
             }
             _ => {
                 // Freehand pen/pencil/highlighter

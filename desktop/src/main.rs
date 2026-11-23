@@ -5,6 +5,7 @@ mod config;
 mod dashboard;
 mod gui;
 mod input;
+mod logging;
 mod network;
 mod overlay;
 mod pairing;

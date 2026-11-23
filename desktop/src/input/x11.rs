@@ -13,6 +13,8 @@ pub struct X11InputBackend {
     width: u32,
     height: u32,
     pressed_buttons: Mutex<Vec<u32>>,
+    accum_x: Mutex<f32>,
+    accum_y: Mutex<f32>,
 }
 
 impl X11InputBackend {
@@ -42,6 +44,8 @@ impl X11InputBackend {
             width,
             height,
             pressed_buttons: Mutex::new(Vec::new()),
+            accum_x: Mutex::new(0.0),
+            accum_y: Mutex::new(0.0),
         })
     }
 }
@@ -60,7 +64,7 @@ impl InputBackend for X11InputBackend {
                 let setup = conn.setup();
                 if let Some(screen) = setup.roots.get(self.screen_num) {
                     let root = screen.root;
-                    // MotionNotify event type = 6
+                    // MotionNotify event type = 6, detail = 0 (absolute motion)
                     let _ = xtest::fake_input(conn, 6, 0, 0, root, target_x, target_y, 0);
                     let _ = conn.flush();
                 }
@@ -71,9 +75,23 @@ impl InputBackend for X11InputBackend {
     fn move_relative(&self, dx: f32, dy: f32, _pressure: f32) {
         if let Ok(guard) = self.conn.lock() {
             if let Some(conn) = guard.as_ref() {
-                // Relative motion with xproto MotionNotify
-                let _ = xtest::fake_input(conn, 6, 0, 0, 0, dx as i16, dy as i16, 0);
-                let _ = conn.flush();
+                let (step_x, step_y) = {
+                    let mut ax = self.accum_x.lock().unwrap_or_else(|e| e.into_inner());
+                    let mut ay = self.accum_y.lock().unwrap_or_else(|e| e.into_inner());
+                    let total_x = *ax + dx;
+                    let total_y = *ay + dy;
+                    let sx = total_x.trunc() as i16;
+                    let sy = total_y.trunc() as i16;
+                    *ax = total_x.fract();
+                    *ay = total_y.fract();
+                    (sx, sy)
+                };
+
+                if step_x != 0 || step_y != 0 {
+                    // MotionNotify event type = 6, detail = 1 (relative motion), root = 0
+                    let _ = xtest::fake_input(conn, 6, 1, 0, 0, step_x, step_y, 0);
+                    let _ = conn.flush();
+                }
             }
         }
     }

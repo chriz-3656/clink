@@ -34,5 +34,11 @@ data class CanvasStroke(
     val points: MutableList<CanvasPoint> = mutableListOf(),
     var isCompleted: Boolean = false
 ) {
-    fun toComposeColor(): Color = Color(color)
+    fun toComposeColor(): Color {
+        return if (color > 0xFFFFFFFFL || color < 0L) {
+            Color(color.toULong())
+        } else {
+            Color(color)
+        }
+    }
 }

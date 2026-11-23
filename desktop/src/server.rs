@@ -94,6 +94,11 @@ async fn handle_connection(
             break;
         }
 
+        if let Message::Ping(payload) = msg {
+            let _ = ws_stream.send(Message::Pong(payload)).await;
+            continue;
+        }
+
         if let Message::Text(text) = msg {
             let client_msg: ClientMessage = match serde_json::from_str(&text) {
                 Ok(m) => m,
@@ -171,6 +176,7 @@ fn process_message(
             if let Some(token) = pairing_mgr.verify_pin_and_issue_token(&pin, &device_id) {
                 *authenticated = true;
                 info!("Device '{}' paired successfully", device_id);
+                crate::logging::log_activity("PAIR", (0x00, 0xE6, 0x76), format!("Device '{}' paired successfully", device_id));
                 Some(ServerResponse::PairAck {
                     success: true,
                     token: Some(token),
@@ -178,6 +184,7 @@ fn process_message(
                 })
             } else {
                 warn!("Invalid PIN '{}' submitted by device '{}'", pin, device_id);
+                crate::logging::log_activity("WARN", (0xFF, 0x91, 0x00), format!("Invalid PIN submitted by '{}'", device_id));
                 Some(ServerResponse::PairAck {
                     success: false,
                     token: None,
@@ -188,11 +195,13 @@ fn process_message(
         ClientMessage::Auth { token } => {
             if pairing_mgr.verify_token(&token) {
                 *authenticated = true;
+                crate::logging::log_activity("AUTH", (0x00, 0xE6, 0x76), "Client authenticated session");
                 Some(ServerResponse::AuthAck {
                     success: true,
                     message: Some("Authenticated".to_string()),
                 })
             } else {
+                crate::logging::log_activity("AUTH", (0xFF, 0x33, 0x66), "Authentication token rejected");
                 Some(ServerResponse::AuthAck {
                     success: false,
                     message: Some("Invalid or expired session token".to_string()),
@@ -201,6 +210,7 @@ fn process_message(
         }
         ClientMessage::ModeChange { mode } => {
             debug!("Client switched mode to: {}", mode);
+            crate::logging::log_activity("MODE", (0x00, 0xE5, 0xFF), format!("Switched mode to {}", mode));
             None
         }
         ClientMessage::StrokeStart {
@@ -214,6 +224,8 @@ fn process_message(
             timestamp,
         } => {
             if *authenticated {
+                info!("Drawing stroke start: tool='{}', color={}, width={:.1}", tool, color, width);
+                crate::logging::log_activity("INK", (0xFF, 0x33, 0x66), format!("Stroke start: tool='{}', width={:.1}", tool, width));
                 let p = Point {
                     x,
                     y,
@@ -257,7 +269,11 @@ fn process_message(
                     timestamp,
                 };
                 if let Ok(mut r) = renderer.lock() {
-                    r.end_stroke(&stroke_id, Some(final_p));
+                    let completed = r.end_stroke(&stroke_id, Some(final_p));
+                    if let Some(s) = completed {
+                        info!("Drawing stroke end: tool='{}', total_pts={}", s.tool, s.points.len());
+                        crate::logging::log_activity("INK", (0x00, 0xE6, 0x76), format!("Stroke end: tool='{}', points={}", s.tool, s.points.len()));
+                    }
                 }
             }
             None
@@ -267,6 +283,7 @@ fn process_message(
                 if let Ok(mut r) = renderer.lock() {
                     r.undo();
                 }
+                crate::logging::log_activity("CANVAS", (0x00, 0xE5, 0xFF), "Undo stroke");
                 Some(ServerResponse::UndoAck)
             } else {
                 None
@@ -277,6 +294,7 @@ fn process_message(
                 if let Ok(mut r) = renderer.lock() {
                     r.redo();
                 }
+                crate::logging::log_activity("CANVAS", (0x00, 0xE5, 0xFF), "Redo stroke");
                 Some(ServerResponse::RedoAck)
             } else {
                 None
@@ -287,6 +305,7 @@ fn process_message(
                 if let Ok(mut r) = renderer.lock() {
                     r.clear();
                 }
+                crate::logging::log_activity("CANVAS", (0xFF, 0x33, 0x66), "Cleared all annotations");
                 Some(ServerResponse::ClearAck)
             } else {
                 None
@@ -297,6 +316,7 @@ fn process_message(
                 if let Ok(mut r) = renderer.lock() {
                     r.fade_timeout = seconds;
                 }
+                crate::logging::log_activity("TIMER", (0xFF, 0x91, 0x00), format!("Fade timer set to {}s", seconds));
                 Some(ServerResponse::TimerAck { seconds })
             } else {
                 None
@@ -313,15 +333,13 @@ fn process_message(
         ClientMessage::CursorMove {
             dx,
             dy,
-            x,
-            y,
+            x: _,
+            y: _,
             pressure,
         } => {
             if *authenticated {
                 if dx != 0.0 || dy != 0.0 {
                     input_backend.move_relative(dx, dy, pressure);
-                } else {
-                    input_backend.move_absolute(x, y, pressure);
                 }
             }
             None

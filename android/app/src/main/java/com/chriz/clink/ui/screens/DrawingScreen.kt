@@ -45,6 +45,7 @@ fun DrawingScreen(
     var toolToastText by remember { mutableStateOf<String?>(null) }
     var toolToastVisible by remember { mutableStateOf(false) }
     var timerSec by remember { mutableStateOf(viewModel.preferences.annotationTimerSeconds) }
+    var dragLockEnabled by remember { mutableStateOf(false) }
 
     LaunchedEffect(tool) {
         val toolName = when (tool) {
@@ -80,6 +81,8 @@ fun DrawingScreen(
             activeStroke = activeStroke,
             laserPosition = laserPos,
             palmRejectionEnabled = viewModel.preferences.palmRejectionEnabled,
+            sensitivity = viewModel.preferences.stylusSensitivity,
+            dragLockEnabled = dragLockEnabled,
             onStrokeStart = { x, y, p -> viewModel.startStroke(x, y, p) },
             onStrokeMove = { pts -> viewModel.appendStrokePoints(pts) },
             onStrokeEnd = { x, y, p -> viewModel.endStroke(x, y, p) },
@@ -255,23 +258,42 @@ fun DrawingScreen(
         }
 
         // Floating Bottom Toolbar
-        FloatingDrawingToolbar(
-            currentTool = tool,
-            currentColor = color,
-            currentWidth = width,
-            canUndo = canUndo,
-            canRedo = canRedo,
-            onToolSelected = { viewModel.setTool(it) },
-            onColorSelected = { viewModel.setColor(it) },
-            onWidthChanged = { viewModel.setWidth(it) },
-            onUndo = { viewModel.undo() },
-            onRedo = { viewModel.redo() },
-            onClear = { viewModel.clearCanvas() },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp)
-        )
+        if (mode == com.chriz.clink.data.model.ClinkMode.ABSOLUTE_ANNOTATION) {
+            FloatingDrawingToolbar(
+                currentTool = tool,
+                currentColor = color,
+                currentWidth = width,
+                canUndo = canUndo,
+                canRedo = canRedo,
+                onToolSelected = { viewModel.setTool(it) },
+                onColorSelected = { viewModel.setColor(it) },
+                onWidthChanged = { viewModel.setWidth(it) },
+                onUndo = { viewModel.undo() },
+                onRedo = { viewModel.redo() },
+                onClear = { viewModel.clearCanvas() },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp)
+            )
+        } else {
+            TabletControllerToolbar(
+                dragLockEnabled = dragLockEnabled,
+                onToggleDragLock = { dragLockEnabled = !dragLockEnabled },
+                onLeftClick = {
+                    viewModel.sendPointerDown(1, 0.5f, 0.5f, 1.0f)
+                    viewModel.sendPointerUp(1, 0.5f, 0.5f)
+                },
+                onRightClick = {
+                    viewModel.sendPointerDown(3, 0.5f, 0.5f, 1.0f)
+                    viewModel.sendPointerUp(3, 0.5f, 0.5f)
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp)
+            )
+        }
     }
 
     if (showSaveDialog) {
@@ -303,5 +325,59 @@ fun DrawingScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun TabletControllerToolbar(
+    dragLockEnabled: Boolean,
+    onToggleDragLock: () -> Unit,
+    onLeftClick: () -> Unit,
+    onRightClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilledTonalButton(
+                onClick = onLeftClick,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Default.TouchApp, contentDescription = "Left Click", modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Left Click", fontWeight = FontWeight.Bold)
+            }
+
+            FilterChip(
+                selected = dragLockEnabled,
+                onClick = onToggleDragLock,
+                label = { Text("Drag Lock", fontWeight = FontWeight.Medium) },
+                leadingIcon = {
+                    Icon(
+                        if (dragLockEnabled) Icons.Default.Lock else Icons.Default.LockOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
+
+            FilledTonalButton(
+                onClick = onRightClick,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Default.Mouse, contentDescription = "Right Click", modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Right Click", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
