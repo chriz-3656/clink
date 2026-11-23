@@ -19,7 +19,7 @@ if [ -z "${ANDROID_HOME:-}" ] && [ -d "/data/android-sdk" ]; then
     export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 fi
 
-VERSION=$(python3 -c "import re; print(re.search(r'__version__\s*=\s*[\"\']([^\"\']+)[\"\']', open('$REPO_ROOT/linux/src/clink/__init__.py').read()).group(1))" 2>/dev/null || echo "1.0.7")
+VERSION=$(python3 -c "import re; print(re.search(r'__version__\s*=\s*[\"\']([^\"\']+)[\"\']', open('$REPO_ROOT/linux/src/clink/__init__.py').read()).group(1))" 2>/dev/null || echo "1.0.8")
 echo "Building Clink version: $VERSION"
 
 # 2. Run Rust and Linux Tests

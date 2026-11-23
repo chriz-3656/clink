@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.8] - 2026-11-23
+
+### Added
+- **Studio Desktop Companion Redesign**:
+  - Replaced all emojis and non-standard unicode glyphs with crisp, vector-rendered graphics using `ui.painter()`, eliminating missing font tofu boxes (`[]`) across all Linux distributions.
+  - Added custom vector brand emblem with interconnected pink and cyan node vectors, bold `CLINK` typography, and `STUDIO` badge.
+  - Implemented responsive centered studio container constrained to maximum 540px width (`ui.vertical_centered`), preventing cards and UI elements from stretching out of proportion when resizing or maximizing on widescreen and 4K displays.
+- **Integrated Live Activity & WebSocket Logs Console**:
+  - Added thread-safe in-memory activity logging engine (`desktop/src/logging.rs`).
+  - Added a dedicated **Activity Logs** channel in the desktop companion displaying real-time events (`[SYSTEM]`, `[INIT]`, `[PAIR]`, `[AUTH]`, `[MODE]`, `[INK]`, `[TIMER]`, `[CANVAS]`) with `[Copy Logs]` and `[Clear Logs]` action buttons.
+- **Dedicated Tablet Controller Dock (Android)**:
+  - Added bottom controller toolbar in Graphics Tablet mode featuring `[ Left Click ]`, `[ Drag Lock ]` (toggle), and `[ Right Click ]` buttons.
+  - Added gesture recognition: tap-to-click for left click and two-finger tap for right click.
+
+### Fixed
+- **Graphics Tablet Relative Pointer Injection**:
+  - Fixed X11 XTest protocol call in `x11.rs`: switched `detail` argument from `0` (absolute root coordinates) to `1` (relative displacement), resolving the issue where cursor snapped to the top-left screen edge.
+  - Added fractional subpixel accumulator (`accum_x`, `accum_y`) in `X11InputBackend` to preserve micro-movements and prevent integer truncation stutter during slow, precise pointing.
+  - Replaced fractional screen division (`/ w`, `/ h`) in Android `DrawingCanvas.kt` with physical pixel deltas scaled by preference sensitivity setting (`rawDx * sensitivity`).
+  - Removed premature `button_down(1)` on finger contact so finger touch freely guides the cursor like a precision trackpad without locking into an accidental drag-select state.
+- **Arrow Drawing Tool Across Platforms**:
+  - Fixed panic `clamp: min > max` in desktop tiny-skia overlay renderer on short/medium strokes.
+  - Fixed dynamic `coerceIn` exception in Android Compose Canvas for arrows.
+  - Standardized arrowhead geometry to a solid-filled polygon matching between client and overlay.
+  - Fixed 64-bit Compose color alpha shift in `StrokeModels.kt` that caused drawn strokes to render transparent.
+  - Refined palm rejection to filter hardware palm events (`TOOL_TYPE_PALM`) without dropping synthetic or firm finger touches.
+
+---
+
 ## [1.0.7] - 2026-11-22
 
 ### Added

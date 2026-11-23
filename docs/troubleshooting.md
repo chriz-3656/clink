@@ -59,6 +59,10 @@ This guide covers common issues and their solutions when using Clink across Linu
 ### ❓ Accidental Palm Touches
 - In Android Settings within the Clink app, toggle **"Palm Rejection"** ON. When enabled, touch events with large contact tool types or tool size thresholds will be rejected, prioritizing your stylus pen.
 
+### ❓ Graphics Tablet Cursor Moving Too Fast or Slow
+- Open Settings in the Clink Android app and adjust the **"Tablet Pointer Sensitivity"** slider (`0.5x` to `3.0x`).
+- In Tablet mode, single-tap acts as Left Click, two-finger tap acts as Right Click, or toggle **"Drag Lock"** in the bottom dock to hold left-click while moving.
+
 ---
 
 ## 4. Diagnostic Commands

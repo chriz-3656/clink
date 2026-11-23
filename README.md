@@ -53,11 +53,18 @@ Draw notes, sketch diagrams, highlight code, and present slides directly on top 
 - **Instant Sweep Clear**: One-tap full canvas clear button on the action bar.
 - **Active Tool Pill Indicator**: Animated pop-up confirming your active tool whenever you switch.
 
-### 🖊️ Mode B: Relative Graphics Tablet
+### 🖊️ Mode B: Relative Graphics Tablet & Precision Trackpad
 Turn your phone or tablet into an external drawing tablet with genuine X11 pointer and stylus injection:
-- Works with **Krita**, **GIMP**, **Inkscape**, **Blender**, and general desktop window managers.
-- Pressure sensitivity support, adjustable speed, and acceleration curves.
+- **Precision Relative Pointer Injection**: Uses low-level XTest relative motion with subpixel float accumulation for smooth, jitter-free cursor tracking across desktop applications.
+- **Dedicated Tablet Controller Dock**: On-screen `[ Left Click ]`, `[ Drag Lock ]` (toggle drag/selection), and `[ Right Click ]` buttons for rapid control.
+- **Trackpad Gestures**: Smooth finger navigation with tap-to-click and two-finger tap for secondary click.
+- **Stylus & Pressure Sensitivity**: Full pressure curve support for **Krita**, **GIMP**, **Inkscape**, **Blender**, and general window managers.
 - Automatic mouse button safety cleanup on disconnects.
+
+### 🖥️ Mode C: Studio Desktop Companion
+- **Responsive Studio UI**: Centered container with clean maximum width constraint preventing arbitrary sprawl on widescreen or 4K monitors.
+- **100% Vector Rendered**: Clean vector-drawn brand emblem and status indicators eliminating tofu box (`[]`) font glyph artifacts.
+- **Live Activity & WebSocket Logs Console**: Integrated real-time activity stream tracking handshakes, device pairings, mode switches, strokes, and network events with clipboard copy.
 
 ---
 
@@ -85,7 +92,7 @@ Download the latest release package from the [Releases Page](https://github.com/
 #### 🐧 Linux:
 ```bash
 # Option A: Debian / Ubuntu / Linux Mint (.deb package with GUI launcher)
-sudo dpkg -i clink_1.0.7_amd64.deb
+sudo dpkg -i clink_1.0.8_amd64.deb
 
 # Option B: Standalone Native Linux GUI Executable (No Python required!)
 chmod +x clink-gui-linux-x86_64
@@ -93,7 +100,7 @@ chmod +x clink-gui-linux-x86_64
 ```
 
 #### 🪟 Windows:
-- **Installer**: Download and run `clink-setup-v1.0.7-windows-x86_64.exe` (creates Desktop & Start Menu shortcuts).
+- **Installer**: Download and run `clink-setup-v1.0.8-windows-x86_64.exe` (creates Desktop & Start Menu shortcuts).
 - **Portable**: Download and run `clink-windows-x86_64.exe` directly.
 
 ### 2. Install Android App

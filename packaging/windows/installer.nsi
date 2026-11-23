@@ -1,6 +1,6 @@
 !define PRODUCT_NAME "Clink"
 !ifndef PRODUCT_VERSION
-  !define PRODUCT_VERSION "1.0.7"
+  !define PRODUCT_VERSION "1.0.8"
 !endif
 !define PRODUCT_PUBLISHER "chriz-3656"
 !define PRODUCT_WEB_SITE "https://github.com/chriz-3656/clink"
