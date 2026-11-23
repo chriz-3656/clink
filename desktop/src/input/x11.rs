@@ -9,6 +9,7 @@ use x11rb::rust_connection::RustConnection;
 
 pub struct X11InputBackend {
     conn: Mutex<Option<RustConnection>>,
+    #[allow(dead_code)]
     screen_num: usize,
     width: u32,
     height: u32,

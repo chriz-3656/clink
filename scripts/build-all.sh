@@ -27,10 +27,28 @@ echo "[2/7] Running Native Rust & Linux Companion test suites..."
 cargo test --all
 PYTHONPATH="$REPO_ROOT/linux/src:$REPO_ROOT/linux/tests" pytest -v "$REPO_ROOT/linux/tests"
 
-# 3. Build Native Linux GUI Binary
-echo "[3/7] Compiling Native Linux Companion GUI binary..."
-cargo build --release --bin clink
-cp "$REPO_ROOT/target/release/clink" "$DIST_DIR/clink-gui-linux-x86_64"
+# 3. Build Native Linux GUI Binary (Universal GLIBC 2.28 compatibility)
+echo "[3/7] Compiling Native Linux Companion GUI binary (Universal GLIBC 2.28)..."
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+if ! command -v cargo-zigbuild >/dev/null 2>&1 || ! command -v zig >/dev/null 2>&1; then
+    echo "Installing cargo-zigbuild and ziglang for universal Linux compatibility..."
+    python3 -m pip install --break-system-packages --user cargo-zigbuild ziglang 2>/dev/null || true
+    ZIG_PATH=$(python3 -c "import ziglang, os; print(os.path.join(os.path.dirname(ziglang.__file__), 'zig'))" 2>/dev/null || true)
+    if [ -n "$ZIG_PATH" ] && [ -f "$ZIG_PATH" ]; then
+        mkdir -p "$HOME/.local/bin"
+        ln -sf "$ZIG_PATH" "$HOME/.local/bin/zig"
+    fi
+fi
+
+if command -v cargo-zigbuild >/dev/null 2>&1 && command -v zig >/dev/null 2>&1; then
+    echo "Compiling with cargo-zigbuild targeting GLIBC 2.28 baseline..."
+    (cd "$REPO_ROOT/desktop" && cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.28 --bin clink)
+    cp "$REPO_ROOT/target/x86_64-unknown-linux-gnu/release/clink" "$DIST_DIR/clink-gui-linux-x86_64"
+else
+    echo "Compiling with default cargo build..."
+    cargo build --release --bin clink
+    cp "$REPO_ROOT/target/release/clink" "$DIST_DIR/clink-gui-linux-x86_64"
+fi
 strip "$DIST_DIR/clink-gui-linux-x86_64" 2>/dev/null || true
 cp "$DIST_DIR/clink-gui-linux-x86_64" "$DIST_DIR/clink-native-linux-x86_64"
 

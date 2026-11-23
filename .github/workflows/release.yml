@@ -32,6 +32,9 @@ jobs:
             xvfb libgtk-3-0 gir1.2-gtk-3.0 libcairo2 python3-gi python3-gi-cairo python3-cairo \
             python3-websockets python3-xlib python3-pytest python3-pytest-asyncio \
             python3-qrcode python3-pil dpkg-dev adb libxkbcommon-x11-0 mingw-w64 nsis
+          python3 -m pip install --break-system-packages cargo-zigbuild ziglang
+          ZIG_BIN=$(python3 -c "import ziglang, os; print(os.path.join(os.path.dirname(ziglang.__file__), 'zig'))")
+          sudo ln -sf "$ZIG_BIN" /usr/local/bin/zig
           rustup target add x86_64-pc-windows-gnu
 
       - name: Run unified monorepo build

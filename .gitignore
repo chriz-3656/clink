@@ -48,6 +48,7 @@ htmlcov/
 
 # Logs & temp
 *.log
+*.exe
 .cache/
 
 # Rust target
